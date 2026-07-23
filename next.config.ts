@@ -1,12 +1,11 @@
 import type { NextConfig } from 'next'
- 
-// On Netlify/CI, use the default `.next` directory.
-// Locally, keep `.next-local` to avoid Windows file-locking conflicts.
-const isCI = process.env.CONTINUOUS_INTEGRATION === 'true'
- 
+
+// Keep a separate build directory locally to avoid Windows file-locking
+// conflicts on the default `.next` cache. Netlify is configured via
+// `netlify.toml` to publish from this directory.
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  distDir: isCI ? undefined : '.next-local',
+  distDir: '.next-local',
   async rewrites() {
     return [
       {
