@@ -14,7 +14,7 @@ const files = [
   'Seyi Different Pattern [7lW3CgvqvQU].mp3',
   'T-Wayne - Nasty Freestyle (Official Music Video) [hGKK8eGQQEk].mp3',
   'Trim - Coconut Water (Official Music Video) [s5VG3K05pn8].mp3',
-  'TRK-NUMÉRO UNO ( EXCLU ) #225 #rap #cotedivoire #fyp [Sof5NxVE2do].mp3',
+  'TRK-NUMERO-UNO-EXCLU.mp3',
   'TxC, Davido, Shoday & Scotts Maphuma - Nakupenda (Official Music Video) feat. Zlatan & Al Xapo [8JZZvo-gJaU].mp3',
   'Young Jonn - Xtra Cool (Official Music Video) [LWWCj-EbevI].mp3',
 ]
