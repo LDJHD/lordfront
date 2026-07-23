@@ -1,10 +1,12 @@
 import type { NextConfig } from 'next'
-
-// The previous `.next` cache is locked by Windows on this machine. Keep the
-// Next.js build output separate so the development server can start normally.
+ 
+// On Netlify/CI, use the default `.next` directory.
+// Locally, keep `.next-local` to avoid Windows file-locking conflicts.
+const isCI = process.env.CONTINUOUS_INTEGRATION === 'true'
+ 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  distDir: '.next-local',
+  distDir: isCI ? undefined : '.next-local',
   async rewrites() {
     return [
       {
