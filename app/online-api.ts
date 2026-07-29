@@ -12,7 +12,7 @@ export type OnlinePlayer = {
 
 export type OnlineSnapshot = {
   status: 'lobby' | 'active' | 'finished'
-  game: 'truth' | 'werewolf' | 'a3'
+  game: 'truth' | 'werewolf' | 'a3' | 'dames'
   limits: { min: number; max: number }
   players: OnlinePlayer[]
   me: OnlinePlayer & { playerToken: string }

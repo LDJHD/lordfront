@@ -6,7 +6,7 @@ import './admin.css'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '/api'
 
-type GameId = 'truth' | 'werewolf' | 'a3'
+type GameId = 'truth' | 'werewolf' | 'a3' | 'dames'
 type PaymentRequest = { reference: string; game: GameId; durationHours: number; status: 'pending' | 'code_sent'; accessCode: string | null; createdAt: string }
 type GeneratedCode = { code: string; game: GameId; durationHours: number }
 
@@ -14,6 +14,7 @@ const games: { id: GameId; label: string }[] = [
   { id: 'truth', label: 'Vérités en Jeu' },
   { id: 'werewolf', label: 'Village Secret' },
   { id: 'a3', label: 'À 3' },
+  { id: 'dames', label: 'Dames Internationales' },
 ]
 
 const gameName = (game: GameId) => games.find((item) => item.id === game)?.label ?? game

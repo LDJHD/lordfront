@@ -5,6 +5,7 @@ import { ArrowRight, Check, LoaderCircle, LogOut, RefreshCw, UserRound, Users } 
 import A3GameOnline from './a3-game-online'
 import TruthGameOnline from './truth-game-online'
 import WerewolfGameOnline from './werewolf-game-online'
+import DamesGameOnline from './dames-game-online'
 import GameMusicPlayer from './game-music-player'
 import {
   approvePlayer,
@@ -23,7 +24,7 @@ import {
 
 type Props = {
   sessionCode: string
-  game: 'truth' | 'werewolf' | 'a3'
+  game: 'truth' | 'werewolf' | 'a3' | 'dames'
   isJoinLink?: boolean
   onLeaveSession?: () => void
 }
@@ -243,6 +244,6 @@ export default function OnlineShell({ sessionCode, game, isJoinLink = false, onL
     <GameMusicPlayer/>
     {syncError && <p className="feedback">{syncError}</p>}
     {sessionControls}
-    {snapshot.game === 'a3' ? <A3GameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/> : snapshot.game === 'werewolf' ? <WerewolfGameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/> : <TruthGameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/>} 
+    {snapshot.game === 'a3' ? <A3GameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/> : snapshot.game === 'werewolf' ? <WerewolfGameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/> : snapshot.game === 'dames' ? <DamesGameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/> : <TruthGameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/>} 
   </>
 }
