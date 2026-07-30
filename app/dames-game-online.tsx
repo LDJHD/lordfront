@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Clock,
   Crown,
+  History,
+  Medal,
   MessageCircle,
   Pause,
   Play,
@@ -38,6 +40,10 @@ type DamesState = {
   warnings: string[]
   turnCount: number
   replayConfirmations: number[]
+  whiteCaptured: number
+  blackCaptured: number
+  drawOfferBy: number | null
+  noProgressCount: number
 }
 
 // Constants
@@ -107,6 +113,22 @@ export default function DamesGameOnline({
   const prevWarning = useRef(false)
   const warnedThisTurn = useRef(false)
   const [multiCaptureActive, setMultiCaptureActive] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [gameHistory, setGameHistory] = useState<
+    { date: string; winner: string; whitePlayer: string; blackPlayer: string; whiteCaptured: number; blackCaptured: number; turnCount: number; moveCount: number }[]
+  >([])
+
+  // Load history from localStorage
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(window.localStorage.getItem('lord-dames-history') ?? '[]')
+      setGameHistory(stored.slice(0, 20))
+    } catch { /* ignore */ }
+  }, [])
+
+  // Compute captured pieces for display
+  const whiteCaptured = state.whiteCaptured ?? 0
+  const blackCaptured = state.blackCaptured ?? 0
 
   // Compute legal moves when it's my turn
   const allLegalMoves = useMemo(() => {
@@ -245,6 +267,20 @@ export default function DamesGameOnline({
     return moves
   }, [state.board, state.currentPlayer, state.phase])
 
+  // Find which pieces have forced captures (must capture)
+  const forcedCapturePieces = useMemo(() => {
+    if (state.phase !== 'playing' || state.currentPlayer !== (isWhite ? 1 : 2)) return new Set<string>()
+    const pieces = new Set<string>()
+    for (const move of allLegalMoves) {
+      if (move.captures.length > 0) {
+        pieces.add(`${move.fromRow},${move.fromCol}`)
+      }
+    }
+    return pieces
+  }, [allLegalMoves, state.phase, state.currentPlayer, isWhite])
+
+  const hasForcedCapture = forcedCapturePieces.size > 0
+
   // Get legal moves for a specific piece
   const getMovesForPiece = useCallback(
     (row: number, col: number) => {
@@ -363,6 +399,36 @@ export default function DamesGameOnline({
     setLegalMoves([])
   }
 
+  // Save game result to history when finished (once per finish event)
+  const savedResult = useRef(false)
+  useEffect(() => {
+    if (state.phase === 'finished' && state.winner) {
+      if (savedResult.current) return
+      savedResult.current = true
+      try {
+        const key = 'lord-dames-history'
+        const existing = JSON.parse(window.localStorage.getItem(key) ?? '[]') as {
+          date: string; winner: string; whitePlayer: string; blackPlayer: string
+          whiteCaptured: number; blackCaptured: number; turnCount: number; moveCount: number
+        }[]
+        const entry = {
+          date: new Date().toISOString(),
+          winner: state.winner === 'draw' ? 'Nulle' : state.winner === 1 ? (whitePlayer?.displayName ?? 'Blanc') : (blackPlayer?.displayName ?? 'Noir'),
+          whitePlayer: whitePlayer?.displayName ?? 'Blanc',
+          blackPlayer: blackPlayer?.displayName ?? 'Noir',
+          whiteCaptured: state.whiteCaptured ?? 0,
+          blackCaptured: state.blackCaptured ?? 0,
+          turnCount: state.turnCount,
+          moveCount: state.moveHistory.length,
+        }
+        existing.unshift(entry)
+        window.localStorage.setItem(key, JSON.stringify(existing.slice(0, 50)))
+      } catch { /* localStorage may be full */ }
+    } else {
+      savedResult.current = false
+    }
+  }, [state.phase, state.winner])
+
   // Sound effects
   useEffect(() => {
     resumeAudio()
@@ -425,14 +491,15 @@ export default function DamesGameOnline({
       <div className="dames-header">
         <p className="kicker">DAMES INTERNATIONALES · EN LIGNE</p>
         <h1>Damier 10×10</h1>
-        <div className="dames-players">
-          <div className={`dames-player ${state.currentPlayer === 1 && state.phase === 'playing' ? 'active' : ''} ${state.winner === 1 ? 'winner' : ''}`}>
+        <div className="dames-players">              <div className={`dames-player ${state.currentPlayer === 1 && state.phase === 'playing' ? 'active' : ''} ${state.winner === 1 ? 'winner' : ''}`}>
             <span className="dames-pawn white" /> {whitePlayer?.displayName ?? 'Blanc'}
+            <span className="dames-captured-count" title="Pions capturés">×{blackCaptured}</span>
             {state.winner === 1 && <Crown size={16} className="crown-icon" />}
           </div>
           <span className="dames-vs">VS</span>
           <div className={`dames-player ${state.currentPlayer === 2 && state.phase === 'playing' ? 'active' : ''} ${state.winner === 2 ? 'winner' : ''}`}>
             <span className="dames-pawn black" /> {blackPlayer?.displayName ?? 'Noir'}
+            <span className="dames-captured-count" title="Pions capturés">×{whiteCaptured}</span>
             {state.winner === 2 && <Crown size={16} className="crown-icon" />}
           </div>
         </div>
@@ -448,13 +515,37 @@ export default function DamesGameOnline({
         )}
         {state.phase === 'paused' && <span className="timer-paused">PARTIE EN PAUSE</span>}
         {state.phase === 'finished' && (
-          <span className="timer-finished">
-            {state.winner
-              ? `${state.winner === 1 ? (whitePlayer?.displayName ?? 'Blanc') : (blackPlayer?.displayName ?? 'Noir')} a gagné !`
-              : 'Match nul'}
+          <span className={`timer-finished${state.winner === 'draw' ? ' draw' : ''}`}>
+            {state.winner === 'draw'
+              ? 'Match nul !'
+              : state.winner
+                ? `${state.winner === 1 ? (whitePlayer?.displayName ?? 'Blanc') : (blackPlayer?.displayName ?? 'Noir')} a gagné !`
+                : 'Match nul !'}
           </span>
         )}
         <span className="dames-turn-count">Tour #{state.turnCount}</span>
+      </div>
+
+      {/* Captured pieces bar */}
+      <div className="dames-capture-bar">
+        <div className="dames-capture-side">
+          <span className="dames-pawn white" /> 
+          <span className="dames-captured-pieces">
+            {Array.from({ length: Math.min(whiteCaptured, 20) }, (_, i) => (
+              <span key={i} className="captured-icon captured-white">◯</span>
+            ))}
+          </span>
+          <span className="dames-captured-total">{whiteCaptured}/20</span>
+        </div>
+        <div className="dames-capture-side right">
+          <span className="dames-captured-total">{blackCaptured}/20</span>
+          <span className="dames-captured-pieces">
+            {Array.from({ length: Math.min(blackCaptured, 20) }, (_, i) => (
+              <span key={i} className="captured-icon captured-black">●</span>
+            ))}
+          </span>
+          <span className="dames-pawn black" />
+        </div>
       </div>
 
       {/* Warnings */}
@@ -472,6 +563,18 @@ export default function DamesGameOnline({
         <p className="dames-multi-capture">
           ⚡ Capture supplémentaire possible ! Continuez à capturer avec la même pièce.
         </p>
+      )}
+      {hasForcedCapture && isMyTurn && !selectedCell && (
+        <p className="dames-forced-capture animated">
+          ⚔️ Capture obligatoire ! Vous devez capturer un pion adverse.
+        </p>
+      )}
+      {state.drawOfferBy !== null && state.drawOfferBy !== me.id && (
+        <div className="dames-draw-offer">
+          <span>🏳️ L&apos;adversaire propose une partie nulle</span>
+          <button className="launch small" onClick={() => act('acceptDraw')}>Accepter</button>
+          <button className="ghost" onClick={() => act('rejectDraw')}>Refuser</button>
+        </div>
       )}
       {actionFeedback && <p className="feedback">{actionFeedback}</p>}
 
@@ -506,6 +609,7 @@ export default function DamesGameOnline({
 
                 const isChainTarget = hasCapture && multiCaptureActive
                 const isChainCapturing = isSelected && multiCaptureActive
+                const isForcedCapture = forcedCapturePieces.has(`${r},${c}`)
 
                 return (
                   <div
@@ -514,10 +618,12 @@ export default function DamesGameOnline({
                     onClick={() => handleCellClick(r, c)}
                   >
                     {pieceColor && (
-                      <div className={`dames-piece ${pieceColor} ${isKing ? 'king' : ''} ${isMyTurn && pieceColor === (state.currentPlayer === 1 ? 'white' : 'black') ? 'movable' : ''} ${isChainCapturing ? 'chain-capturing' : ''}`}>
+                      <div className={`dames-piece ${pieceColor} ${isKing ? 'king' : ''} ${isMyTurn && pieceColor === (state.currentPlayer === 1 ? 'white' : 'black') ? 'movable' : ''} ${isChainCapturing ? 'chain-capturing' : ''} ${isForcedCapture ? 'forced-capture' : ''}`}>
                         <div className="piece-inner">
                           {isKing ? '♛' : pieceColor === 'white' ? '◯' : '●'}
                         </div>
+                        {isForcedCapture && <div className="forced-capture-ring" />}
+                        {isChainCapturing && <div className="chain-capture-ring" />}
                       </div>
                     )}
                     {isValidTarget && !pieceColor && (
@@ -545,10 +651,23 @@ export default function DamesGameOnline({
 
       {/* Game Controls */}
       <div className="dames-controls">
-        {state.phase === 'playing' && !otherPlayerPaused && !isPauseRequester && (
-          <button className="ghost" onClick={() => act('requestPause')} disabled={!isMyTurn && !isWhite && !isBlack}>
-            <Pause size={16} /> Pause
-          </button>
+        {state.phase === 'playing' && !otherPlayerPaused && !isPauseRequester && state.drawOfferBy === null && (
+          <>
+            {isMyTurn && <button className="ghost" onClick={() => act('offerDraw')}>
+              🏳️ Nulle
+            </button>}
+            <button className="ghost" onClick={() => act('requestPause')} disabled={!isMyTurn && !isWhite && !isBlack}>
+              <Pause size={16} /> Pause
+            </button>
+          </>
+        )}
+        {state.phase === 'playing' && state.drawOfferBy === me.id && (
+          <span className="dames-pause-request">
+            🏳️ Proposition de nulle envoyée...
+            <button className="ghost" onClick={() => act('rejectDraw')}>
+              Annuler
+            </button>
+          </span>
         )}
         {state.phase === 'playing' && isPauseRequester && (
           <span className="dames-pause-request">
@@ -641,6 +760,55 @@ export default function DamesGameOnline({
           </div>
         </details>
       )}
+
+      {/* Game History */}
+      <div className="dames-history-panel">
+        <button className="dames-history-toggle" onClick={() => setHistoryOpen(!historyOpen)}>
+          <History size={14} />
+          <span>Historique des parties ({gameHistory.length})</span>
+          <span className={`dames-chevron ${historyOpen ? 'open' : ''}`}>▾</span>
+        </button>
+        {historyOpen && (
+          <div className="dames-history-content">
+            {gameHistory.length === 0 ? (
+              <p className="dames-history-empty">Aucune partie terminée pour le moment.</p>
+            ) : (
+              <div className="dames-history-list detailed">
+                {gameHistory.map((entry, i) => {
+                  const isDraw = entry.winner === 'Nulle'
+                  const isWhiteWin = entry.winner === entry.whitePlayer
+                  return (
+                    <div key={i} className={`dames-history-card ${isDraw ? 'draw' : isWhiteWin ? 'white-wins' : 'black-wins'}`}>
+                      <div className="dames-history-card-header">
+                        <Medal size={14} className={`dames-history-medal ${isDraw ? 'draw' : 'win'}`} />
+                        <span className="dames-history-result">
+                          {isDraw ? 'Match nul' : `${entry.winner} a gagné`}
+                        </span>
+                        <span className="dames-history-date">
+                          {new Date(entry.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <div className="dames-history-card-players">
+                        <span className="dames-history-player white">
+                          <span className="dames-pawn white" /> {entry.whitePlayer}
+                        </span>
+                        <span className="dames-history-vs">vs</span>
+                        <span className="dames-history-player black">
+                          <span className="dames-pawn black" /> {entry.blackPlayer}
+                        </span>
+                      </div>
+                      <div className="dames-history-card-stats">
+                        <span>Pris : {entry.whiteCaptured} | {entry.blackCaptured}</span>
+                        <span>{entry.turnCount} tours · {entry.moveCount} coups</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Chat */}
       <div className="dames-chat">
