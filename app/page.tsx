@@ -72,6 +72,11 @@ export default function Home() {
   const whatsappHref = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(whatsappText)}`
 
   useEffect(() => {
+    // Un lien d'invitation (?join=CODE) a toujours priorité sur une session
+    // précédemment stockée : sinon, un joueur qui a déjà cliqué un lien retombe
+    // dans son ancienne partie au lieu du formulaire e-mail / nom du nouveau lien.
+    const hasInviteLink = Boolean(new URLSearchParams(window.location.search).get('join'))
+    if (hasInviteLink) return
     const stored = window.localStorage.getItem('lord-session')
     if (!stored) return
     const saved = JSON.parse(stored) as Session
@@ -105,6 +110,10 @@ export default function Home() {
     const joinCode = new URLSearchParams(window.location.search).get('join')
     if (!joinCode) return
     setJoinMode(true)
+    // Le lien d'invitation prend le dessus : l'ancienne session stockée ne sera
+    // pas restaurée (voir l'effet ci-dessus), et en cas de succès elle sera
+    // remplacée par ce nouveau code. On ne l'efface pas ici pour ne pas perdre
+    // la reprise de l'ancienne partie si ce lien échoue.
     fetch(`${API_URL}/access-codes/${joinCode.trim().toUpperCase()}`).then(async (response) => {
       const data = await response.json()
       if (response.status === 410) throw new Error(data.message)
@@ -185,7 +194,7 @@ export default function Home() {
       <section className="live-game">
         <div className="live-label"><span className={`live-icon ${activeGame.tone}`}><Icon size={24}/></span><span>{activeGame.title}</span><i>EN DIRECT</i></div>
         <div className="pulse-ring"><span/><span/><span/><Gamepad2 size={40}/></div>
-        {activeGame.id === 'truth' ? <OnlineShell sessionCode={session.code} game="truth" isJoinLink={joinMode} onLeaveSession={() => { window.localStorage.removeItem('lord-session'); window.localStorage.removeItem(`lord-online-token-${session.code}`); setSession(null); setJoinMode(false) }}/> : activeGame.id === 'a3' ? <OnlineShell sessionCode={session.code} game="a3" isJoinLink={joinMode} onLeaveSession={() => { window.localStorage.removeItem('lord-session'); window.localStorage.removeItem(`lord-online-token-${session.code}`); setSession(null); setJoinMode(false) }}/> : activeGame.id === 'dames' ? <OnlineShell sessionCode={session.code} game="dames" isJoinLink={joinMode} onLeaveSession={() => { window.localStorage.removeItem('lord-session'); window.localStorage.removeItem(`lord-online-token-${session.code}`); setSession(null); setJoinMode(false) }}/> : <OnlineShell sessionCode={session.code} game="werewolf" isJoinLink={joinMode} onLeaveSession={() => { window.localStorage.removeItem('lord-session'); window.localStorage.removeItem(`lord-online-token-${session.code}`); setSession(null); setJoinMode(false) }}/>}
+        {activeGame.id === 'truth' ? <OnlineShell key={session.code} sessionCode={session.code} game="truth" isJoinLink={joinMode} onLeaveSession={() => { window.localStorage.removeItem('lord-session'); window.localStorage.removeItem(`lord-online-token-${session.code}`); setSession(null); setJoinMode(false) }}/> : activeGame.id === 'a3' ? <OnlineShell key={session.code} sessionCode={session.code} game="a3" isJoinLink={joinMode} onLeaveSession={() => { window.localStorage.removeItem('lord-session'); window.localStorage.removeItem(`lord-online-token-${session.code}`); setSession(null); setJoinMode(false) }}/> : activeGame.id === 'dames' ? <OnlineShell key={session.code} sessionCode={session.code} game="dames" isJoinLink={joinMode} onLeaveSession={() => { window.localStorage.removeItem('lord-session'); window.localStorage.removeItem(`lord-online-token-${session.code}`); setSession(null); setJoinMode(false) }}/> : <OnlineShell key={session.code} sessionCode={session.code} game="werewolf" isJoinLink={joinMode} onLeaveSession={() => { window.localStorage.removeItem('lord-session'); window.localStorage.removeItem(`lord-online-token-${session.code}`); setSession(null); setJoinMode(false) }}/>}
         <div className="game-actions"><button className="ghost" onClick={copyInviteLink}><Copy size={16}/> Copier le lien de la partie</button></div>
         {inviteFeedback && <p className="invite-feedback"><Check size={15}/>{inviteFeedback}</p>}
         <p className="session-code"><LockKeyhole size={14}/> Code {session.code} · accès protégé jusqu’à la fin du compteur</p>

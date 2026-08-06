@@ -1,11 +1,15 @@
 node_modules/
-.next/
-.next-local/
-
 .env
-.env.local
-.env.*.local
+
+build/
+build.zip
 
 *.log
-*.tsbuildinfo
-.vercel/
+*.err
+*.out
+
+app.zip
+app (2).zip
+app (3).zip
+app (4).zip
+app (5).zip
