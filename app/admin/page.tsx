@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Check, Clipboard, Crown, KeyRound, LogOut, Plus, RefreshCw, ShieldCheck, Lock, Eye, EyeOff } from 'lucide-react'
 import './admin.css'
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '/api'
+import { API_URL, fetchWithTimeout } from '../api'
 
 type GameId = 'truth' | 'werewolf' | 'a3' | 'dames'
 type PaymentRequest = { reference: string; game: GameId; durationHours: number; status: 'pending' | 'code_sent'; accessCode: string | null; createdAt: string }
@@ -45,7 +44,7 @@ export default function AdminPage() {
     if (!currentToken) return
     setLoading(true)
     try {
-      const response = await fetch(`${API_URL}/admin/payment-requests`, { headers: { Authorization: `Bearer ${currentToken}` } })
+      const response = await fetchWithTimeout(`${API_URL}/admin/payment-requests`, { headers: { Authorization: `Bearer ${currentToken}` } })
       const data = await response.json()
       if (!response.ok) throw new Error(data.message ?? 'Impossible de charger les demandes.')
       setRequests(data)
@@ -58,7 +57,7 @@ export default function AdminPage() {
   async function login() {
     setFeedback('')
     try {
-      const response = await fetch(`${API_URL}/admin/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) })
+      const response = await fetchWithTimeout(`${API_URL}/admin/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) })
       const data = await response.json()
       if (!response.ok) return setFeedback(data.message ?? 'Connexion refusée.')
       setToken(data.token)
@@ -73,7 +72,7 @@ export default function AdminPage() {
     setCreatingCode(true)
     setFeedback('')
     try {
-      const response = await fetch(`${API_URL}/admin/access-codes`, {
+      const response = await fetchWithTimeout(`${API_URL}/admin/access-codes`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ game: selectedGame, durationHours: selectedDuration }),
@@ -88,7 +87,7 @@ export default function AdminPage() {
 
   async function generate(request: PaymentRequest) {
     if (!token) return
-    const response = await fetch(`${API_URL}/admin/payment-requests/${request.reference}/code`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+    const response = await fetchWithTimeout(`${API_URL}/admin/payment-requests/${request.reference}/code`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
     const data = await response.json()
     if (!response.ok) return setFeedback(data.message ?? 'Impossible de générer le code.')
     setRequests((items) => items.map((item) => item.reference === request.reference ? { ...item, accessCode: data.code, status: 'code_sent' } : item))
@@ -99,7 +98,7 @@ export default function AdminPage() {
     setFeedback('')
     setChangingPassword(true)
     try {
-      const response = await fetch(`${API_URL}/admin/change-password`, {
+      const response = await fetchWithTimeout(`${API_URL}/admin/change-password`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ currentPassword, newPassword, confirmNewPassword }),

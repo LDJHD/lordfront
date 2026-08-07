@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { ArrowRight, Check, Clock3, Copy, Crown, Gamepad2, Hand, KeyRound, LockKeyhole, MessageCircle, ShieldCheck, Sparkles, Users, Vote, X, Zap } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { ArrowRight, Check, Clock3, Copy, Crown, Gamepad2, Hand, KeyRound, LoaderCircle, LockKeyhole, MessageCircle, RefreshCw, ShieldCheck, Sparkles, Users, Vote, X, Zap } from 'lucide-react'
 import OnlineShell from './online-shell'
+import { API_URL, fetchWithTimeout } from './api'
 import './game.css'
 import './activation.css'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '/api'
 const WHATSAPP_NUMBER = '22967357728'
 
 const games = [
@@ -24,7 +24,7 @@ function saveSession(nextSession: Session) {
 }
 
 async function fetchSessionFromCode(code: string): Promise<Session> {
-  const response = await fetch(`${API_URL}/access-codes/activate`, {
+  const response = await fetchWithTimeout(`${API_URL}/access-codes/activate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ code: code.trim().toUpperCase() }),
@@ -64,6 +64,7 @@ export default function Home() {
   const [now, setNow] = useState(Date.now())
   const [inviteFeedback, setInviteFeedback] = useState('')
   const [joinMode, setJoinMode] = useState(false)
+  const [joining, setJoining] = useState(false)
   const game = useMemo(() => games.find((item) => item.id === selected)!, [selected])
   const activeGame = session ? games.find((item) => item.id === session.game)! : null
   const remaining = session ? new Date(session.expiresAt).getTime() - now : 0
@@ -75,7 +76,7 @@ export default function Home() {
     // Un lien d'invitation (?join=CODE) a toujours priorité sur une session
     // précédemment stockée : sinon, un joueur qui a déjà cliqué un lien retombe
     // dans son ancienne partie au lieu du formulaire e-mail / nom du nouveau lien.
-    const hasInviteLink = Boolean(new URLSearchParams(window.location.search).get('join'))
+    const hasInviteLink = new URLSearchParams(window.location.search).get('join') !== null
     if (hasInviteLink) return
     const stored = window.localStorage.getItem('lord-session')
     if (!stored) return
@@ -106,29 +107,43 @@ export default function Home() {
     }).catch(() => setSession(saved))
   }, [])
 
-  useEffect(() => {
+  const joinViaLink = useCallback(async () => {
     const joinCode = new URLSearchParams(window.location.search).get('join')
-    if (!joinCode) return
+    if (!joinCode?.trim()) {
+      setFeedback('Lien d’invitation invalide. Utilisez le code reçu par l’organisateur.')
+      return
+    }
     setJoinMode(true)
-    // Le lien d'invitation prend le dessus : l'ancienne session stockée ne sera
-    // pas restaurée (voir l'effet ci-dessus), et en cas de succès elle sera
-    // remplacée par ce nouveau code. On ne l'efface pas ici pour ne pas perdre
-    // la reprise de l'ancienne partie si ce lien échoue.
-    fetch(`${API_URL}/access-codes/${joinCode.trim().toUpperCase()}`).then(async (response) => {
+    setJoining(true)
+    setFeedback('')
+    try {
+      const response = await fetchWithTimeout(`${API_URL}/access-codes/${joinCode.trim().toUpperCase()}`)
       const data = await response.json()
-      if (response.status === 410) throw new Error(data.message)
+      if (response.status === 410) throw new Error(data.message ?? 'Code expiré. Demandez un nouveau lien.')
       if (!response.ok) throw new Error(data.message ?? 'Code introuvable.')
-      if (data.expiresAt) {
-        const joined: Session = { game: data.game, duration: data.durationHours, code: data.code, expiresAt: data.expiresAt }
-        saveSession(joined)
-        window.localStorage.setItem(`lord-join-mode-${joined.code}`, '1')
-        setSession(joined)
-        setNow(Date.now())
-      } else {
-        setFeedback('La partie n’a pas encore été activée par l’organisateur.')
+      if (!data.expiresAt) {
+        setFeedback('La partie n’a pas encore été activée par l’organisateur. Réessayez dans un instant.')
+        return
       }
-    }).catch((error) => setFeedback(error instanceof Error ? error.message : 'Impossible de rejoindre cette session.'))
+      // Le lien d'invitation remplace l'ancienne session stockée : un joueur qui
+      // a déjà rejoint une partie via un lien arrive toujours sur le formulaire
+      // e-mail / nom de la NOUVELLE partie, jamais dans son ancienne partie.
+      const joined: Session = { game: data.game, duration: data.durationHours, code: data.code, expiresAt: data.expiresAt }
+      saveSession(joined)
+      window.localStorage.setItem(`lord-join-mode-${joined.code}`, '1')
+      setJoinMode(true)
+      setSession(joined)
+      setNow(Date.now())
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : 'Impossible de rejoindre cette session. Vérifiez le lien et réessayez.')
+    } finally {
+      setJoining(false)
+    }
   }, [])
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('join') !== null) joinViaLink()
+  }, [joinViaLink])
 
   useEffect(() => {
     if (!session) return
@@ -186,6 +201,16 @@ export default function Home() {
     setInviteFeedback('Lien copié : envoie-le aux joueurs que tu invites.')
   }
 
+  if (joining) {
+    return <main className="game-screen">
+      <div className="game-noise"/><div className="game-glow pink"/>
+      <nav><div className="brand"><Crown size={20}/> THE LORD <span>GAMES</span></div></nav>
+      <section className="live-game">
+        <div className="truth-card setup online-lobby"><LoaderCircle size={28} className="spinning"/><p className="kicker">PARTIE EN LIGNE · REJOINDRE</p><h1>Connexion à la partie…</h1><p>Récupération de la session et préparation de la salle.</p></div>
+      </section>
+    </main>
+  }
+
   if (session && activeGame) {
     const Icon = activeGame.icon
     return <main className="game-screen">
@@ -212,6 +237,7 @@ export default function Home() {
       <div className="game-grid">{games.map((item) => { const Icon = item.icon; return <button key={item.id} onClick={() => { setSelected(item.id); setFeedback('') }} className={`game-card ${item.tone} ${selected === item.id ? 'selected' : ''}`}><div className="card-top"><span className="icon"><Icon/></span>{selected === item.id && <span className="chosen"><Check size={14}/> Sélectionné</span>}</div><p>{item.eyebrow}</p><h3>{item.title}</h3><span className="description">{item.description}</span><footer><span><Users size={15}/>{item.players}</span><ArrowRight size={19}/></footer></button>})}</div>
       <div className="session-box"><div><p className="mini-title">02 — DURÉE DE LA SALLE</p><h3>Combien de temps jouez-vous ?</h3><span>Votre code démarre le compteur au moment de son activation.</span></div><div className="duration-picker">{[1,2,3,4,5].map((hour) => <button onClick={() => setDuration(hour)} key={hour} className={duration === hour ? 'active' : ''}>{hour}h</button>)}</div><div className="price"><strong>{duration * 500}</strong><span>FCFA<br/>pour {duration}h</span></div></div>
       {feedback && <p className="feedback">{feedback}</p>}
+      {joinMode && feedback && <button className="received-code-button" onClick={joinViaLink}><RefreshCw size={15}/> Réessayer la connexion</button>}
       <button className="launch cta-main" onClick={beginPayment}><Zap size={18}/> Commencer la partie <ArrowRight size={19}/></button>
       <p className="activation-note"><KeyRound size={15}/> Après paiement, entrez le code reçu pour lancer votre session.</p><button className="received-code-button" onClick={openCodeDialog}><KeyRound size={17}/> J’ai reçu mon code</button>
     </section>

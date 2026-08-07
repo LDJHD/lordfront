@@ -1,2 +1,11 @@
 [build]
   publish = ".next-local"
+
+# Les appels navigateur vers /api/* (même origine) sont redirigés (proxy serveur)
+# vers le backend AdonisJS. La même règle est réécrite dans .next-local/_redirects
+# par le script postbuild pour les déploiements par téléversement direct du dossier.
+[[redirects]]
+  from = "/api/*"
+  to = "https://floralwhite-chimpanzee-459944.hostingersite.com/:splat"
+  status = 200
+  force = true

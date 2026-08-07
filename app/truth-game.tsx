@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { ArrowRight, Eye, UserRound } from 'lucide-react'
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '/api'
+import { API_URL, fetchWithTimeout } from './api'
 
 type TruthQuestion = { id: number; body: string; level: number }
 
@@ -35,7 +34,7 @@ export default function TruthGame({ sessionCode }: { sessionCode: string }) {
     setLoading(true)
     setFeedback('')
     try {
-      const response = await fetch(`${API_URL}/access-codes/${sessionCode}/questions`, {
+      const response = await fetchWithTimeout(`${API_URL}/access-codes/${sessionCode}/questions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ playerName }),

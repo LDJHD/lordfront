@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '/api'
+import { API_URL, fetchWithTimeout } from './api'
 
 export type OnlinePlayer = {
   id: number
@@ -51,7 +51,7 @@ export async function reconnectOnline(code: string, displayName: string, email: 
 }
 
 export async function hostOnline(code: string, displayName: string, email: string) {
-  const response = await fetch(`${API_URL}/access-codes/${code}/online/host`, {
+  const response = await fetchWithTimeout(`${API_URL}/access-codes/${code}/online/host`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ displayName, email }),
@@ -63,7 +63,7 @@ export async function hostOnline(code: string, displayName: string, email: strin
 }
 
 export async function joinOnline(code: string, displayName: string, email: string) {
-  const response = await fetch(`${API_URL}/access-codes/${code}/online/join`, {
+  const response = await fetchWithTimeout(`${API_URL}/access-codes/${code}/online/join`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ displayName, email }),
@@ -77,7 +77,7 @@ export async function joinOnline(code: string, displayName: string, email: strin
 export async function pollOnline(code: string) {
   const token = loadPlayerToken(code)
   if (!token) throw new Error('Session en ligne introuvable.')
-  const response = await fetch(`${API_URL}/access-codes/${code}/online`, {
+  const response = await fetchWithTimeout(`${API_URL}/access-codes/${code}/online`, {
     headers: { Authorization: `Bearer ${token}` },
   })
   const data = await response.json()
@@ -88,7 +88,7 @@ export async function pollOnline(code: string) {
 
 export async function approvePlayer(code: string, playerId: number) {
   const token = loadPlayerToken(code)
-  const response = await fetch(`${API_URL}/access-codes/${code}/online/players/${playerId}/approve`, {
+  const response = await fetchWithTimeout(`${API_URL}/access-codes/${code}/online/players/${playerId}/approve`, {
     method: 'PATCH',
     headers: { Authorization: `Bearer ${token}` },
   })
@@ -99,7 +99,7 @@ export async function approvePlayer(code: string, playerId: number) {
 
 export async function startOnline(code: string) {
   const token = loadPlayerToken(code)
-  const response = await fetch(`${API_URL}/access-codes/${code}/online/start`, {
+  const response = await fetchWithTimeout(`${API_URL}/access-codes/${code}/online/start`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   })
@@ -114,7 +114,7 @@ export async function resumeOnline(code: string) {
 
 export async function onlineAction(code: string, action: string, payload: Record<string, unknown> = {}) {
   const token = loadPlayerToken(code)
-  const response = await fetch(`${API_URL}/access-codes/${code}/online/action`, {
+  const response = await fetchWithTimeout(`${API_URL}/access-codes/${code}/online/action`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ action, payload }),
