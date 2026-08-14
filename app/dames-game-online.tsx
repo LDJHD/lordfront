@@ -153,14 +153,12 @@ export default function DamesGameOnline({
         if (!piece) continue
         const color = piece === 1 || piece === 3 ? 1 : 2
         if (color !== player) continue
-        // Check captures for this piece (simplified client-side logic)
-        const dir = player === 1 ? -1 : 1
         const isKing = piece === 3 || piece === 4
-        const dirs: [number, number][] = isKing
-          ? [[-1, -1], [-1, 1], [1, -1], [1, 1]]
-          : [[dir, -1], [dir, 1]]
+        // Men (simple pawns) may capture in ALL 4 diagonal directions, exactly
+        // like kings (international draughts: a pawn can capture backward).
+        const captureDirs: [number, number][] = [[-1, -1], [-1, 1], [1, -1], [1, 1]]
 
-        for (const [dr, dc] of dirs) {
+        for (const [dr, dc] of captureDirs) {
           let ar = r + dr
           let ac = c + dc
           while (ar >= 0 && ar < BOARD_SIZE && ac >= 0 && ac < BOARD_SIZE) {
@@ -181,9 +179,9 @@ export default function DamesGameOnline({
               lr += dr
               lc += dc
             }
-            if (!isKing) break
-            ar += dr
-            ac += dc
+            // Stop scanning this diagonal after the first enemy piece: a capture
+            // can never jump through an occupied landing square.
+            break
           }
         }
       }
@@ -201,16 +199,19 @@ export default function DamesGameOnline({
 
         const dir = player === 1 ? -1 : 1
         const isKing = piece === 3 || piece === 4
-        const dirs: [number, number][] = isKing
+        // Simple moves stay forward-only for men; only captures may go backward.
+        const moveDirs: [number, number][] = isKing
           ? [[-1, -1], [-1, 1], [1, -1], [1, 1]]
           : [[dir, -1], [dir, 1]]
+        // Captures are allowed in all 4 diagonal directions (international draughts).
+        const captureDirs: [number, number][] = [[-1, -1], [-1, 1], [1, -1], [1, 1]]
 
         const pieceCaptures: typeof moves = []
         const pieceMoves: typeof moves = []
 
-        for (const [dr, dc] of dirs) {
-          // Simple moves
-          if (!hasCapture) {
+        // Simple moves — forward only for men
+        if (!hasCapture) {
+          for (const [dr, dc] of moveDirs) {
             let nr = r + dr
             let nc = c + dc
             while (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE) {
@@ -222,8 +223,10 @@ export default function DamesGameOnline({
               nc += dc
             }
           }
+        }
 
-          // Captures
+        // Captures — all 4 diagonal directions for men and kings
+        for (const [dr, dc] of captureDirs) {
           let ar = r + dr
           let ac = c + dc
           while (ar >= 0 && ar < BOARD_SIZE && ac >= 0 && ac < BOARD_SIZE) {
@@ -248,9 +251,9 @@ export default function DamesGameOnline({
               lr += dr
               lc += dc
             }
-            if (!isKing) break
-            ar += dr
-            ac += dc
+            // Stop scanning this diagonal after the first enemy piece: a capture
+            // can never jump through an occupied landing square.
+            break
           }
         }
 
