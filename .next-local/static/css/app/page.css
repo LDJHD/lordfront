@@ -85,7 +85,7 @@
 .dames-warning{background:#f8c26a22;border:1px solid #f8c26a66;color:#ffe0a5}
 .dames-danger{background:#ff5b8e33;border:1px solid #ff5b8e88;color:#ffb3ca}
 .dames-board-wrapper{display:flex;justify-content:center;margin-bottom:16px}
-.dames-board{display:inline-grid;grid-template-rows:auto repeat(10,auto) auto;border-radius:12px;overflow:hidden;border:2px solid #ffffff30;box-shadow:0 8px 32px #00000044}
+.dames-board{display:inline-grid;grid-template-rows:auto repeat(10,auto) auto;border-radius:12px;border:2px solid #ffffff30;box-shadow:0 8px 32px #00000044;overflow:visible}
 .dames-row{display:grid;grid-template-columns:24px repeat(10,48px) 24px}
 .dames-labels-row{display:grid;grid-template-columns:24px repeat(10,48px) 24px}
 .dames-label-corner{width:24px;height:20px}
@@ -211,6 +211,7 @@
 .dames-history-player .dames-pawn{width:12px;height:12px}
 .dames-history-vs{color:#8a7a92;font:500 11px 'DM Mono'}
 .dames-history-card-stats{display:flex;justify-content:space-between;font:400 11px 'DM Mono';color:#8a7a92;padding-top:6px;border-top:1px solid #ffffff10}
+
 
 /*!****************************************************************************************************************************************************************************************************************************************************************!*\
   !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[10].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[14].oneOf[10].use[3]!./app/activation.css ***!

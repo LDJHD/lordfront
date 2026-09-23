@@ -244,6 +244,6 @@ export default function OnlineShell({ sessionCode, game, isJoinLink = false, onL
     <GameMusicPlayer/>
     {syncError && <p className="feedback">{syncError}</p>}
     {sessionControls}
-    {snapshot.game === 'a3' ? <A3GameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/> : snapshot.game === 'werewolf' ? <WerewolfGameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/> : snapshot.game === 'dames' ? <DamesGameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/> : <TruthGameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/>} 
+    {snapshot.game === 'a3' ? <A3GameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/> : snapshot.game === 'werewolf' ? <WerewolfGameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/> : snapshot.game === 'dames' ? <DamesGameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/> : <TruthGameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/>}
   </>
 }

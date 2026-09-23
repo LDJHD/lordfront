@@ -51,7 +51,7 @@ function formatRemaining(milliseconds: number) {
 }
 
 export default function Home() {
-  const [selected, setSelected] = useState<GameId>('truth')
+  const [selected, setSelected] = useState<GameId>('truth' as GameId)
   const [duration, setDuration] = useState(2)
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [sessionsOpen, setSessionsOpen] = useState(false)
@@ -219,7 +219,7 @@ export default function Home() {
       <section className="live-game">
         <div className="live-label"><span className={`live-icon ${activeGame.tone}`}><Icon size={24}/></span><span>{activeGame.title}</span><i>EN DIRECT</i></div>
         <div className="pulse-ring"><span/><span/><span/><Gamepad2 size={40}/></div>
-        {activeGame.id === 'truth' ? <OnlineShell key={session.code} sessionCode={session.code} game="truth" isJoinLink={joinMode} onLeaveSession={() => { window.localStorage.removeItem('lord-session'); window.localStorage.removeItem(`lord-online-token-${session.code}`); setSession(null); setJoinMode(false) }}/> : activeGame.id === 'a3' ? <OnlineShell key={session.code} sessionCode={session.code} game="a3" isJoinLink={joinMode} onLeaveSession={() => { window.localStorage.removeItem('lord-session'); window.localStorage.removeItem(`lord-online-token-${session.code}`); setSession(null); setJoinMode(false) }}/> : activeGame.id === 'dames' ? <OnlineShell key={session.code} sessionCode={session.code} game="dames" isJoinLink={joinMode} onLeaveSession={() => { window.localStorage.removeItem('lord-session'); window.localStorage.removeItem(`lord-online-token-${session.code}`); setSession(null); setJoinMode(false) }}/> : <OnlineShell key={session.code} sessionCode={session.code} game="werewolf" isJoinLink={joinMode} onLeaveSession={() => { window.localStorage.removeItem('lord-session'); window.localStorage.removeItem(`lord-online-token-${session.code}`); setSession(null); setJoinMode(false) }}/>}
+        {(() => { const leaveSession = () => { window.localStorage.removeItem('lord-session'); window.localStorage.removeItem(`lord-online-token-${session.code}`); setSession(null); setJoinMode(false) }; const gameSlug = activeGame.id as 'truth' | 'werewolf' | 'a3' | 'dames'; return <OnlineShell key={session.code} sessionCode={session.code} game={gameSlug} isJoinLink={joinMode} onLeaveSession={leaveSession}/> })()}
         <div className="game-actions"><button className="ghost" onClick={copyInviteLink}><Copy size={16}/> Copier le lien de la partie</button></div>
         {inviteFeedback && <p className="invite-feedback"><Check size={15}/>{inviteFeedback}</p>}
         <p className="session-code"><LockKeyhole size={14}/> Code {session.code} · accès protégé jusqu’à la fin du compteur</p>

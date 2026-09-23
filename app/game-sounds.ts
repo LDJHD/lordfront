@@ -360,3 +360,191 @@ export async function resumeAudio() {
   const ctx = getContext()
   if (ctx.state === 'suspended') await ctx.resume()
 }
+
+// ─── Zombie Voices ──────────────────────────────────────────────────
+
+let lastZombieVoiceTime = 0
+export function playZombieGroan() {
+  const now = Date.now()
+  if (now - lastZombieVoiceTime < 2000) return
+  lastZombieVoiceTime = now
+  const ctx = getContext()
+  const start = ctx.currentTime
+  // Low guttural groan
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  const filter = ctx.createBiquadFilter()
+  filter.type = 'lowpass'
+  filter.frequency.value = 600
+  osc.type = 'sawtooth'
+  osc.frequency.setValueAtTime(80, start)
+  osc.frequency.linearRampToValueAtTime(60, start + 0.4)
+  osc.frequency.linearRampToValueAtTime(90, start + 0.6)
+  gain.gain.setValueAtTime(0.0001, start)
+  gain.gain.linearRampToValueAtTime(0.05, start + 0.05)
+  gain.gain.linearRampToValueAtTime(0.03, start + 0.3)
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.8)
+  osc.connect(filter)
+  filter.connect(gain)
+  gain.connect(ctx.destination)
+  osc.start(start)
+  osc.stop(start + 0.9)
+}
+
+let lastZombieScreamTime = 0
+export function playZombieScream() {
+  const now = Date.now()
+  if (now - lastZombieScreamTime < 3000) return
+  lastZombieScreamTime = now
+  const ctx = getContext()
+  const start = ctx.currentTime
+  // High-pitched scream when dying
+  const osc1 = ctx.createOscillator()
+  const osc2 = ctx.createOscillator()
+  const gain = ctx.createGain()
+  const filter = ctx.createBiquadFilter()
+  filter.type = 'bandpass'
+  filter.frequency.value = 1200
+  filter.Q.value = 2
+  osc1.type = 'sawtooth'
+  osc1.frequency.setValueAtTime(300, start)
+  osc1.frequency.linearRampToValueAtTime(600, start + 0.15)
+  osc1.frequency.linearRampToValueAtTime(150, start + 0.5)
+  osc2.type = 'square'
+  osc2.frequency.setValueAtTime(280, start)
+  osc2.frequency.linearRampToValueAtTime(500, start + 0.15)
+  osc2.frequency.linearRampToValueAtTime(120, start + 0.5)
+  gain.gain.setValueAtTime(0.0001, start)
+  gain.gain.linearRampToValueAtTime(0.06, start + 0.02)
+  gain.gain.linearRampToValueAtTime(0.04, start + 0.2)
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.6)
+  osc1.connect(filter)
+  osc2.connect(filter)
+  filter.connect(gain)
+  gain.connect(ctx.destination)
+  osc1.start(start)
+  osc1.stop(start + 0.7)
+  osc2.start(start)
+  osc2.stop(start + 0.7)
+}
+
+let lastZombieGrowlTime = 0
+export function playZombieGrowl() {
+  const now = Date.now()
+  if (now - lastZombieGrowlTime < 1500) return
+  lastZombieGrowlTime = now
+  const ctx = getContext()
+  const start = ctx.currentTime
+  // Deep growl
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  const filter = ctx.createBiquadFilter()
+  filter.type = 'lowpass'
+  filter.frequency.value = 400
+  osc.type = 'sawtooth'
+  osc.frequency.setValueAtTime(60, start)
+  osc.frequency.linearRampToValueAtTime(80, start + 0.2)
+  osc.frequency.linearRampToValueAtTime(50, start + 0.4)
+  gain.gain.setValueAtTime(0.0001, start)
+  gain.gain.linearRampToValueAtTime(0.04, start + 0.05)
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.5)
+  osc.connect(filter)
+  filter.connect(gain)
+  gain.connect(ctx.destination)
+  osc.start(start)
+  osc.stop(start + 0.6)
+}
+
+// ─── Survivor Voices ────────────────────────────────────────────────
+
+let lastSurvivorScreamTime = 0
+export function playSurvivorScream() {
+  const now = Date.now()
+  if (now - lastSurvivorScreamTime < 2000) return
+  lastSurvivorScreamTime = now
+  const ctx = getContext()
+  const start = ctx.currentTime
+  // Human-like scream when hit
+  const osc1 = ctx.createOscillator()
+  const osc2 = ctx.createOscillator()
+  const gain = ctx.createGain()
+  const filter = ctx.createBiquadFilter()
+  filter.type = 'bandpass'
+  filter.frequency.value = 2000
+  filter.Q.value = 1.5
+  osc1.type = 'triangle'
+  osc1.frequency.setValueAtTime(400, start)
+  osc1.frequency.linearRampToValueAtTime(700, start + 0.08)
+  osc1.frequency.linearRampToValueAtTime(350, start + 0.3)
+  osc2.type = 'sine'
+  osc2.frequency.setValueAtTime(420, start)
+  osc2.frequency.linearRampToValueAtTime(750, start + 0.08)
+  osc2.frequency.linearRampToValueAtTime(380, start + 0.3)
+  gain.gain.setValueAtTime(0.0001, start)
+  gain.gain.linearRampToValueAtTime(0.07, start + 0.02)
+  gain.gain.linearRampToValueAtTime(0.04, start + 0.15)
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.4)
+  osc1.connect(filter)
+  osc2.connect(filter)
+  filter.connect(gain)
+  gain.connect(ctx.destination)
+  osc1.start(start)
+  osc1.stop(start + 0.5)
+  osc2.start(start)
+  osc2.stop(start + 0.5)
+}
+
+export function playSurvivorDeathCry() {
+  const ctx = getContext()
+  const start = ctx.currentTime
+  // Long death cry
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  const filter = ctx.createBiquadFilter()
+  filter.type = 'bandpass'
+  filter.frequency.value = 1500
+  filter.Q.value = 1
+  osc.type = 'triangle'
+  osc.frequency.setValueAtTime(500, start)
+  osc.frequency.linearRampToValueAtTime(800, start + 0.1)
+  osc.frequency.linearRampToValueAtTime(200, start + 0.6)
+  gain.gain.setValueAtTime(0.0001, start)
+  gain.gain.linearRampToValueAtTime(0.08, start + 0.02)
+  gain.gain.linearRampToValueAtTime(0.05, start + 0.2)
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.7)
+  osc.connect(filter)
+  filter.connect(gain)
+  gain.connect(ctx.destination)
+  osc.start(start)
+  osc.stop(start + 0.8)
+}
+
+let lastSurvivorBattleCryTime = 0
+export function playSurvivorBattleCry() {
+  const now = Date.now()
+  if (now - lastSurvivorBattleCryTime < 4000) return
+  lastSurvivorBattleCryTime = now
+  const ctx = getContext()
+  const start = ctx.currentTime
+  // Aggressive battle cry
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  const filter = ctx.createBiquadFilter()
+  filter.type = 'bandpass'
+  filter.frequency.value = 1800
+  filter.Q.value = 1
+  osc.type = 'triangle'
+  osc.frequency.setValueAtTime(350, start)
+  osc.frequency.linearRampToValueAtTime(500, start + 0.05)
+  osc.frequency.setValueAtTime(450, start + 0.1)
+  osc.frequency.linearRampToValueAtTime(600, start + 0.15)
+  gain.gain.setValueAtTime(0.0001, start)
+  gain.gain.linearRampToValueAtTime(0.06, start + 0.02)
+  gain.gain.linearRampToValueAtTime(0.04, start + 0.2)
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.35)
+  osc.connect(filter)
+  filter.connect(gain)
+  gain.connect(ctx.destination)
+  osc.start(start)
+  osc.stop(start + 0.4)
+}
