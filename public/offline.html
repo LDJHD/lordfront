@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Hors ligne — THE LORD GAMES</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at 50% 100%, #fce0d2 0, transparent 45%), #fffaf4;
+      color: #201a2a;
+      font-family: 'DM Sans', sans-serif;
+      text-align: center;
+      padding: 24px;
+    }
+    .crown { font-size: 56px; }
+    h1 { font: 700 clamp(30px, 6vw, 46px) 'Playfair Display', Georgia, serif; margin: 14px 0 10px; }
+    p { color: #766f7d; max-width: 420px; line-height: 1.55; margin: 0 auto 26px; }
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 14px 24px;
+      background: #ff5b8e;
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="crown">👑</div>
+    <h1>Connexion perdue</h1>
+    <p>Cette page nécessite une connexion internet. Vérifiez votre réseau puis réessayez — vos parties vous attendent.</p>
+    <button onclick="location.reload()">Réessayer</button>
+  </main>
+</body>
+</html>
