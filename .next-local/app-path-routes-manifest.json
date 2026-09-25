@@ -2,7 +2,7 @@
   "/icon.png/route": "/icon.png",
   "/_not-found/page": "/_not-found",
   "/3d/page": "/3d",
-  "/admin/page": "/admin",
   "/page": "/",
-  "/solo/page": "/solo"
+  "/solo/page": "/solo",
+  "/admin/page": "/admin"
 }
