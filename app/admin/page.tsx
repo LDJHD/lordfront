@@ -5,7 +5,7 @@ import { Check, Clipboard, Crown, KeyRound, LogOut, Plus, RefreshCw, ShieldCheck
 import './admin.css'
 import { API_URL, fetchWithTimeout } from '../api'
 
-type GameId = 'truth' | 'werewolf' | 'a3' | 'dames'
+type GameId = 'truth' | 'werewolf' | 'a3' | 'dames' | 'ludo' | 'pique'
 type PaymentRequest = { reference: string; game: GameId; durationHours: number; status: 'pending' | 'code_sent'; accessCode: string | null; createdAt: string }
 type GeneratedCode = { code: string; game: GameId; durationHours: number }
 
@@ -14,9 +14,25 @@ const games: { id: GameId; label: string }[] = [
   { id: 'werewolf', label: 'Village Secret' },
   { id: 'a3', label: 'À 3' },
   { id: 'dames', label: 'Dames Internationales' },
+  { id: 'ludo', label: 'Ludo' },
+  { id: 'pique', label: 'Pique' },
 ]
 
 const gameName = (game: GameId) => games.find((item) => item.id === game)?.label ?? game
+
+async function readErrorMessage(response: Response, fallback: string) {
+  try {
+    const data = (await response.json()) as { message?: string }
+    if (data && typeof data.message === 'string' && data.message) return data.message
+  } catch {
+    /* Le corps de la réponse n'est pas du JSON : on le lit comme du texte. */
+  }
+  try {
+    const text = (await response.text()).trim()
+    if (text) return text
+  } catch { /* ignore */ }
+  return fallback
+}
 
 export default function AdminPage() {
   const [password, setPassword] = useState('')
@@ -46,7 +62,7 @@ export default function AdminPage() {
     try {
       const response = await fetchWithTimeout(`${API_URL}/admin/payment-requests`, { headers: { Authorization: `Bearer ${currentToken}` } })
       const data = await response.json()
-      if (!response.ok) throw new Error(data.message ?? 'Impossible de charger les demandes.')
+      if (!response.ok) throw new Error(await readErrorMessage(response, 'Impossible de charger les demandes.'))
       setRequests(data)
     } catch (error) { setFeedback(error instanceof Error ? error.message : 'Erreur de connexion.') }
     finally { setLoading(false) }
@@ -59,7 +75,7 @@ export default function AdminPage() {
     try {
       const response = await fetchWithTimeout(`${API_URL}/admin/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) })
       const data = await response.json()
-      if (!response.ok) return setFeedback(data.message ?? 'Connexion refusée.')
+      if (!response.ok) return setFeedback(await readErrorMessage(response, 'Connexion refusée.'))
       setToken(data.token)
       setPassword('')
     } catch {
@@ -78,7 +94,7 @@ export default function AdminPage() {
         body: JSON.stringify({ game: selectedGame, durationHours: selectedDuration }),
       })
       const data = await response.json()
-      if (!response.ok) throw new Error(data.message ?? 'Impossible de générer le code.')
+      if (!response.ok) throw new Error(await readErrorMessage(response, 'Impossible de générer le code.'))
       setGeneratedCodes((items) => [{ code: data.code, game: data.game, durationHours: data.durationHours }, ...items])
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Erreur lors de la génération.')
@@ -89,7 +105,7 @@ export default function AdminPage() {
     if (!token) return
     const response = await fetchWithTimeout(`${API_URL}/admin/payment-requests/${request.reference}/code`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
     const data = await response.json()
-    if (!response.ok) return setFeedback(data.message ?? 'Impossible de générer le code.')
+    if (!response.ok) return setFeedback(await readErrorMessage(response, 'Impossible de générer le code.'))
     setRequests((items) => items.map((item) => item.reference === request.reference ? { ...item, accessCode: data.code, status: 'code_sent' } : item))
   }
 
@@ -104,7 +120,7 @@ export default function AdminPage() {
         body: JSON.stringify({ currentPassword, newPassword, confirmNewPassword }),
       })
       const data = await response.json()
-      if (!response.ok) throw new Error(data.message ?? 'Erreur lors du changement de mot de passe.')
+      if (!response.ok) throw new Error(await readErrorMessage(response, 'Erreur lors du changement de mot de passe.'))
       setFeedback(data.message)
       setCurrentPassword('')
       setNewPassword('')

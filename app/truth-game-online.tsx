@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ArrowRight, Check, Eye, List, Shuffle, X } from 'lucide-react'
+import { ArrowRight, Check, Eye, List, MessageCircle, Send, Shuffle, X } from 'lucide-react'
 import { onlineAction, type OnlineSnapshot } from './online-api'
 import { playAnswerSound, playApproveSound, playQuestionSound, playRejectSound, playTurnSound } from './game-sounds'
 import { normalizeTruthState } from './truth-state'
+import { ChatAudioPlayer, VoiceRecordButton } from './voice-chat'
 
 export default function TruthGameOnline({ sessionCode, snapshot, onUpdate }: { sessionCode: string; snapshot: OnlineSnapshot; onUpdate: (data: OnlineSnapshot) => void }) {
   const approvedIds = snapshot.players.filter((player) => player.approved).map((player) => player.id)
@@ -18,9 +19,15 @@ export default function TruthGameOnline({ sessionCode, snapshot, onUpdate }: { s
   const [answerInput, setAnswerInput] = useState(state.answer)
   const [showList, setShowList] = useState(false)
   const [actionError, setActionError] = useState('')
+  const [chatInput, setChatInput] = useState('')
+  const chatEndRef = useRef<HTMLDivElement>(null)
   const prevPhase = useRef(state.phase)
   const prevTurn = useRef(state.currentTurnPlayerId)
   const prevRejected = useRef(state.answerRejected)
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [state.chatMessages.length])
 
   useEffect(() => {
     if (state.phase !== 'awaitingApproval' || state.answerPlayerId !== snapshot.me.id) {
@@ -67,6 +74,12 @@ export default function TruthGameOnline({ sessionCode, snapshot, onUpdate }: { s
 
   async function submitAnswer() {
     if (await runAction('submitAnswer', { answer: answerInput })) setAnswerInput('')
+  }
+
+  function sendChat(payload?: { audioUrl: string; audioMime?: string; audioDurationMs?: number }) {
+    if (!payload && !chatInput.trim()) return
+    void runAction('chat', payload ?? { text: chatInput.trim() })
+    if (!payload) setChatInput('')
   }
 
   return <>
@@ -160,6 +173,29 @@ export default function TruthGameOnline({ sessionCode, snapshot, onUpdate }: { s
         )}
       </div>
     )}
+
+    <div className="truth-chat">
+      <div className="truth-chat-header"><MessageCircle size={16} /> Chat</div>
+      <div className="truth-chat-messages">
+        {state.chatMessages.length === 0 && <p className="truth-chat-empty">Aucun message. Échangez avec les joueurs !</p>}
+        {state.chatMessages.map((msg, index) => {
+          const sender = snapshot.players.find((player) => player.id === msg.senderId)
+          return (
+            <div key={index} className={`truth-chat-msg ${msg.senderId === snapshot.me.id ? 'own' : 'other'}`}>
+              <strong>{sender?.displayName ?? 'Inconnu'}</strong>
+              {msg.text ? <span>{msg.text}</span> : null}
+              <ChatAudioPlayer audio={msg.audio} />
+            </div>
+          )
+        })}
+        <div ref={chatEndRef} />
+      </div>
+      <div className="truth-chat-input">
+        <input value={chatInput} onChange={(event) => setChatInput(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && sendChat()} placeholder="Message ou note vocale..." maxLength={400} />
+        <VoiceRecordButton sessionCode={sessionCode} onSend={async (payload) => sendChat(payload)} />
+        <button className="ghost" onClick={() => sendChat()} disabled={!chatInput.trim()}><Send size={16} /></button>
+      </div>
+    </div>
 
     <div className="lobby-list compact">
       {snapshot.players.filter((player) => player.approved).map((player) => (

@@ -21,6 +21,12 @@ export const API_URL = BUILT_API_URL && !isLocalUrl(BUILT_API_URL)
   ? BUILT_API_URL.replace(/\/+$/, '')
   : '/api'
 
+export function resolveMediaUrl(path: string) {
+  if (!path) return ''
+  if (/^https?:\/\//i.test(path)) return path
+  return `${API_URL}${path.startsWith('/') ? path : `/${path}`}`
+}
+
 const DEFAULT_TIMEOUT_MS = 12000
 
 // fetch() plafonné dans le temps : une API muette (réseau coupé, backend arrêté)

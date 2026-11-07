@@ -1,5 +1,7 @@
 import { API_URL, fetchWithTimeout } from './api'
 
+export { resolveMediaUrl } from './api'
+
 export type OnlinePlayer = {
   id: number
   displayName: string
@@ -8,11 +10,12 @@ export type OnlinePlayer = {
   approved: boolean
   alive: boolean
   role: string | null
+  color?: string | null
 }
 
 export type OnlineSnapshot = {
   status: 'lobby' | 'active' | 'finished'
-  game: 'truth' | 'werewolf' | 'a3' | 'dames'
+  game: 'truth' | 'werewolf' | 'a3' | 'dames' | 'ludo' | 'pique'
   limits: { min: number; max: number }
   players: OnlinePlayer[]
   me: OnlinePlayer & { playerToken: string }
@@ -97,11 +100,12 @@ export async function approvePlayer(code: string, playerId: number) {
   return data as OnlineSnapshot
 }
 
-export async function startOnline(code: string) {
+export async function startOnline(code: string, payload: Record<string, unknown> = {}) {
   const token = loadPlayerToken(code)
   const response = await fetchWithTimeout(`${API_URL}/access-codes/${code}/online/start`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   })
   const data = await response.json()
   if (!response.ok) throw new Error(data.message ?? 'Démarrage impossible.')
@@ -110,6 +114,22 @@ export async function startOnline(code: string) {
 
 export async function resumeOnline(code: string) {
   return onlineAction(code, 'resume')
+}
+
+export async function uploadVoiceNote(code: string, blob: Blob) {
+  const token = loadPlayerToken(code)
+  const form = new FormData()
+  const mime = blob.type || 'audio/webm'
+  const ext = mime.includes('ogg') ? 'ogg' : mime.includes('mpeg') || mime.includes('mp3') ? 'mp3' : mime.includes('wav') ? 'wav' : mime.includes('mp4') || mime.includes('m4a') ? 'm4a' : 'webm'
+  form.append('audio', blob, `voice-note.${ext}`)
+  const response = await fetchWithTimeout(`${API_URL}/access-codes/${code}/online/upload-audio`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  }, 30000)
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error((data as { message?: string }).message ?? 'Envoi de la note vocale impossible.')
+  return data as { url: string; mime?: string; size?: number | null }
 }
 
 export async function onlineAction(code: string, action: string, payload: Record<string, unknown> = {}) {

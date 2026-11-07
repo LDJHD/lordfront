@@ -1,0 +1,60 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [6 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
+endobj
+5 0 obj
+<< /Length 2703 >>
+stream
+BT /F1 18 Tf 55 790 Td (PIQUE - Règles du jeu en ligne \(THE LORD GAMES\)) Tj ET
+BT /F1 11 Tf 55 766 Td (Paquet de 52 cartes sans joker. Atout : le Pique.) Tj ET
+BT /F1 11 Tf 55 749 Td (2 joueurs : 26 cartes par joueur, 26 plis.) Tj ET
+BT /F1 11 Tf 55 732 Td (3 joueurs : 17 cartes par joueur \(1 carte mise de côté\), 17 plis.) Tj ET
+BT /F1 11 Tf 55 715 Td (4 joueurs : 13 cartes par joueur, 13 plis.) Tj ET
+BT /F1 11 Tf 55 698 Td (Le créateur de la partie commence et mène le premier pli.) Tj ET
+BT /F1 14 Tf 55 671 Td (1. Les annonces) Tj ET
+BT /F1 11 Tf 55 651 Td (Après la distribution, chaque joueur annonce à son tour :) Tj ET
+BT /F1 11 Tf 55 634 Td (- son nombre de plis \(0 au maximum : 26/17/13 selon le nombre de joueurs\),) Tj ET
+BT /F1 11 Tf 55 617 Td (- ou « nil » : il annonce qu'il ne remportera AUCUN pli.) Tj ET
+BT /F1 11 Tf 55 600 Td (Une annonce hors tour ou hors bornes est refusée.) Tj ET
+BT /F1 14 Tf 55 573 Td (2. La pose des cartes) Tj ET
+BT /F1 11 Tf 55 553 Td (- Si vous avez la couleur demandée, vous devez la suivre.) Tj ET
+BT /F1 11 Tf 55 536 Td (- Sinon, vous devez piquer \(atout\) tant qu'il vous reste des piques ; sans pique, autre carte.) Tj ET
+BT /F1 11 Tf 55 519 Td (- Pour ouvrir un pli : jouez une autre couleur tant que vous en possédez) Tj ET
+BT /F1 11 Tf 55 502 Td (  \(le pique ne s'ouvre pas si vous avez des cartes d'une autre couleur\).) Tj ET
+BT /F1 11 Tf 55 485 Td (- Le pli est remporté par le plus fort pique, sinon par la plus forte carte) Tj ET
+BT /F1 11 Tf 55 468 Td (  de la couleur demandée. Le gagnant mène le pli suivant.) Tj ET
+BT /F1 14 Tf 55 441 Td (3. Le calcul des points \(fin de manche\)) Tj ET
+BT /F1 11 Tf 55 421 Td (- Contrat réussi \(entre le nombre demandé et le double, bornes incluses\) : 10) Tj ET
+BT /F1 11 Tf 55 404 Td (  points par pli annoncé + 1 point par pli en plus \(les surplus = sacs, max 10\).) Tj ET
+BT /F1 11 Tf 55 387 Td (- Contrat raté \(moins que demandé, ou plus que le double\) : -10 points par pli demandé.) Tj ET
+BT /F1 11 Tf 55 370 Td (- Nil réussi : +100 points. Nil raté : -100 points.) Tj ET
+BT /F1 11 Tf 55 353 Td (- Sacs : plis gagnés au-delà du contrat. À 10 sacs : -100 points et 10 sacs retirés.) Tj ET
+BT /F1 11 Tf 55 336 Td (- Le joueur au score le plus élevé remporte la partie \(égalité : aucun vainqueur\).) Tj ET
+BT /F1 14 Tf 55 309 Td (4. En ligne sur THE LORD GAMES) Tj ET
+BT /F1 11 Tf 55 289 Td (- Serveur autoritaire : distributions, poses et scores validés côté serveur.) Tj ET
+BT /F1 11 Tf 55 272 Td (- 30 secondes par tour, chat intégré, reprise automatique après déconnexion.) Tj ET
+BT /F1 11 Tf 55 255 Td (- Fin de partie : écran des scores et bouton Rejouer pour l'organisateur.) Tj ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000212 00000 n 
+0000000338 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+3093
+%%EOF

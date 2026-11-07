@@ -25,6 +25,7 @@ import {
   playDamesResumeSound,
   resumeAudio,
 } from './game-sounds'
+import { ChatAudioPlayer, VoiceRecordButton } from './voice-chat'
 
 type DamesState = {
   phase: 'playing' | 'paused' | 'finished'
@@ -35,7 +36,7 @@ type DamesState = {
   turnStartAt: string | null
   moveHistory: string[]
   winner: 1 | 2 | 'draw' | null
-  chatMessages: { senderId: number; text: string; timestamp: string }[]
+  chatMessages: { senderId: number; text: string; timestamp: string; audio?: { url: string; mime?: string; durationMs?: number } }[]
   pauseRequestedBy: number | null
   warnings: string[]
   turnCount: number
@@ -476,10 +477,10 @@ export default function DamesGameOnline({
     }
   }, [showWarning])
 
-  function sendChat() {
-    if (!chatInput.trim()) return
-    act('chat', { text: chatInput.trim() })
-    setChatInput('')
+  function sendChat(payload?: { audioUrl: string; audioMime?: string; audioDurationMs?: number }) {
+    if (!payload && !chatInput.trim()) return
+    act('chat', payload ?? { text: chatInput.trim() })
+    if (!payload) setChatInput('')
   }
 
   const isPauseRequester = state.pauseRequestedBy === me.id
@@ -830,7 +831,8 @@ export default function DamesGameOnline({
                 className={`dames-chat-msg ${msg.senderId === me.id ? 'own' : 'other'}`}
               >
                 <strong>{sender?.displayName ?? 'Inconnu'}</strong>
-                <span>{msg.text}</span>
+                {msg.text ? <span>{msg.text}</span> : null}
+                <ChatAudioPlayer audio={msg.audio} />
               </div>
             )
           })}
@@ -841,10 +843,11 @@ export default function DamesGameOnline({
             value={chatInput}
             onChange={(e) => setChatInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && sendChat()}
-            placeholder="Écrire un message..."
-            maxLength={300}
+            placeholder="Message ou note vocale..."
+            maxLength={400}
           />
-          <button className="ghost" onClick={sendChat} disabled={!chatInput.trim()}>
+          <VoiceRecordButton sessionCode={sessionCode} onSend={async (payload) => sendChat(payload)} />
+          <button className="ghost" onClick={() => sendChat()} disabled={!chatInput.trim()}>
             <Send size={16} />
           </button>
         </div>

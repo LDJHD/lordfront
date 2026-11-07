@@ -6,6 +6,8 @@ import A3GameOnline from './a3-game-online'
 import TruthGameOnline from './truth-game-online'
 import WerewolfGameOnline from './werewolf-game-online'
 import DamesGameOnline from './dames-game-online'
+import LudoGameOnline from './ludo-game-online'
+import PiqueGameOnline from './pique-game-online'
 import GameMusicPlayer from './game-music-player'
 import {
   approvePlayer,
@@ -24,7 +26,7 @@ import {
 
 type Props = {
   sessionCode: string
-  game: 'truth' | 'werewolf' | 'a3' | 'dames'
+  game: 'truth' | 'werewolf' | 'a3' | 'dames' | 'ludo' | 'pique'
   isJoinLink?: boolean
   onLeaveSession?: () => void
 }
@@ -179,9 +181,11 @@ export default function OnlineShell({ sessionCode, game, isJoinLink = false, onL
     }
   }
 
+  const [piqueMode, setPiqueMode] = useState<'solo' | 'team'>('solo')
+
   async function startGame() {
     try {
-      setSnapshot(await startOnline(sessionCode))
+      setSnapshot(await startOnline(sessionCode, snapshot && snapshot.game === 'pique' ? { mode: piqueMode } : {}))
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : 'Impossible de démarrer.')
     }
@@ -234,6 +238,20 @@ export default function OnlineShell({ sessionCode, game, isJoinLink = false, onL
       <div className="lobby-list">{snapshot.players.map((player) => <article key={player.id} className={`lobby-player ${player.approved ? 'approved' : 'pending'}`}><span>{player.displayName}{player.isHost ? ' · hôte' : ''}</span>{snapshot.me.isHost && !player.approved ? <button onClick={() => approve(player.id)}>Approuver</button> : player.approved ? <Check size={15}/> : <LoaderCircle size={15} className="spinning"/>}</article>)}</div>
       {pending.length > 0 && snapshot.me.isHost && <p className="night-alert">{pending.length} joueur(s) en attente d’approbation</p>}
       {feedback && <p className="feedback">{feedback}</p>}
+      {snapshot.game === 'pique' && snapshot.me.isHost && snapshot.canStart && (
+        <div className="pique-mode-select">
+          <span className="pique-mode-label">Mode de jeu</span>
+          <button className={piqueMode === 'solo' ? 'active' : ''} onClick={() => setPiqueMode('solo')}>Individuel</button>
+          <button
+            className={piqueMode === 'team' ? 'active' : ''}
+            disabled={approved.length !== 4}
+            onClick={() => setPiqueMode('team')}
+            title={approved.length !== 4 ? 'Disponible avec exactement 4 joueurs' : 'Deux paires, scores cumulés'}
+          >
+            Par équipe · 4 joueurs
+          </button>
+        </div>
+      )}
       {snapshot.me.isHost && snapshot.canStart && <button className="launch" onClick={startGame}>Lancer la partie <ArrowRight size={18}/></button>}
       {snapshot.me.isHost && !snapshot.canStart && <p className="online-hint">Il faut {snapshot.limits.min} joueur{snapshot.limits.min > 1 ? 's' : ''} approuvé{snapshot.limits.min > 1 ? 's' : ''} minimum.</p>}
       {sessionControls}
@@ -244,6 +262,6 @@ export default function OnlineShell({ sessionCode, game, isJoinLink = false, onL
     <GameMusicPlayer/>
     {syncError && <p className="feedback">{syncError}</p>}
     {sessionControls}
-    {snapshot.game === 'a3' ? <A3GameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/> : snapshot.game === 'werewolf' ? <WerewolfGameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/> : snapshot.game === 'dames' ? <DamesGameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/> : <TruthGameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/>}
+    {snapshot.game === 'a3' ? <A3GameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/> : snapshot.game === 'werewolf' ? <WerewolfGameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/> : snapshot.game === 'dames' ? <DamesGameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/> : snapshot.game === 'ludo' ? <LudoGameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/> : snapshot.game === 'pique' ? <PiqueGameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/> : <TruthGameOnline sessionCode={sessionCode} snapshot={snapshot} onUpdate={applySnapshot}/>}
   </>
 }

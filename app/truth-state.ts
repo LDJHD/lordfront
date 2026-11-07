@@ -1,4 +1,6 @@
 export type TruthQuestion = { id: number; body: string; level: number }
+export type TruthChatAudio = { url: string; mime?: string; durationMs?: number }
+export type TruthChatMessage = { senderId: number; text: string; timestamp?: string; audio?: TruthChatAudio }
 
 export type TruthState = {
   phase: 'chooseQuestion' | 'revealed' | 'answering' | 'awaitingApproval'
@@ -11,6 +13,7 @@ export type TruthState = {
   answerPlayerId: number | null
   approvedBy: number | null
   answerRejected: boolean
+  chatMessages: TruthChatMessage[]
 }
 
 export function normalizeTruthState(raw: Record<string, unknown>, playerIds: number[]): TruthState {
@@ -51,6 +54,9 @@ export function normalizeTruthState(raw: Record<string, unknown>, playerIds: num
     phase = currentQuestion ? (answer.trim() && answerPlayerId ? 'awaitingApproval' : 'answering') : 'chooseQuestion'
   }
 
+  const chatMessages = Array.isArray(raw.chatMessages)
+    ? (raw.chatMessages as TruthChatMessage[]).filter((m) => m && Number.isInteger(Number(m.senderId)))
+    : []
   return {
     phase,
     currentTurnPlayerId,
@@ -62,5 +68,6 @@ export function normalizeTruthState(raw: Record<string, unknown>, playerIds: num
     answerPlayerId,
     approvedBy: raw.approvedBy ? Number(raw.approvedBy) : null,
     answerRejected: Boolean(raw.answerRejected),
+    chatMessages,
   }
 }
