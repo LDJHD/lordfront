@@ -29,10 +29,12 @@ type LudoState = {
   chatMessages: { senderId: number; text: string; timestamp: string; audio?: ChatAudio }[]
 }
 
+type LudoMove = { pawnIndex: number; target: number; capture?: boolean }
 type LudoDieOption = {
   dice: number[]
   amount: number
-  moves: { pawnIndex: number; target: number }[]
+  moves: LudoMove[]
+  canCapture?: boolean
 }
 
 function sameDice(first: number[] | null, second: number[] | null) {
@@ -279,33 +281,41 @@ function DiceTable({
             const used = Boolean(state.diceUsed?.[index])
             const option = dieOptions.find((item) => item.dice.length === 1 && item.dice[0] === index)
             const playable = Boolean(option && option.moves.length > 0)
+            const canCapture = Boolean(option?.canCapture)
             const selected = sameDice(selectedDice, [index])
             return (
               <button
                 key={`die-choice-${index}`}
                 type="button"
-                className={`ludo-dice-choice ${selected ? 'selected' : ''} ${used ? 'used' : ''}`}
+                className={`ludo-dice-choice ${selected ? 'selected' : ''} ${used ? 'used' : ''} ${canCapture && playable ? 'has-capture' : ''}`}
                 disabled={!isMyTurn || used || !playable}
                 onClick={() => onSelectDice([index])}
+                title={canCapture && playable ? 'Ce dé permet de capturer un pion adverse (à vous de choisir)' : undefined}
               >
                 <span>Dé {index + 1}</span>
                 <strong>{rolls[index]}</strong>
-                <em>{used ? 'utilisé' : playable ? 'jouer' : 'bloqué'}</em>
+                <em>{used ? 'utilisé' : !playable ? 'bloqué' : canCapture ? 'capturer' : 'jouer'}</em>
               </button>
             )
           })}
-          {unused.length === 2 && (
-            <button
-              type="button"
-              className={`ludo-dice-choice sum ${sameDice(selectedDice, [0, 1]) ? 'selected' : ''}`}
-              disabled={!isMyTurn || !(dieOptions.find((item) => item.dice.length === 2)?.moves.length)}
-              onClick={() => onSelectDice([0, 1])}
-            >
-              <span>Somme</span>
-              <strong>{rolls[0] + rolls[1]}</strong>
-              <em>{dieOptions.find((item) => item.dice.length === 2)?.moves.length ? 'jouer' : 'bloqué'}</em>
-            </button>
-          )}
+          {unused.length === 2 && (() => {
+            const sumOpt = dieOptions.find((item) => item.dice.length === 2)
+            const playable = Boolean(sumOpt && sumOpt.moves.length > 0)
+            const canCapture = Boolean(sumOpt?.canCapture)
+            return (
+              <button
+                type="button"
+                className={`ludo-dice-choice sum ${sameDice(selectedDice, [0, 1]) ? 'selected' : ''} ${canCapture && playable ? 'has-capture' : ''}`}
+                disabled={!isMyTurn || !playable}
+                onClick={() => onSelectDice([0, 1])}
+                title={canCapture && playable ? 'La somme permet de capturer un pion adverse (à vous de choisir)' : undefined}
+              >
+                <span>Somme</span>
+                <strong>{rolls[0] + rolls[1]}</strong>
+                <em>{!playable ? 'bloqué' : canCapture ? 'capturer' : 'jouer'}</em>
+              </button>
+            )
+          })()}
         </div>
       )}
 
@@ -401,8 +411,18 @@ export default function LudoGameOnline({
     if (state.phase !== 'playing' || state.status !== 'rolled' || state.lastRolls === null || !myEntry) return []
     const used = state.diceUsed ?? [true, true]
     const unused = [0, 1].filter((index) => !used[index])
-    const movesFor = (amount: number, allowBaseExit: boolean) => {
-      const moves: { pawnIndex: number; target: number }[] = []
+    const moveCaptures = (destination: number) => {
+      if (destination >= LUDU_HOME_COLUMN_START) return false
+      const ringIndex = ludoRingIndex(myEntry.color, destination)
+      if (ringIndex === null || SAFE_RING_CELLS.has(ringIndex)) return false
+      return state.players.some(
+        (player) =>
+          player.id !== me.id &&
+          player.pawns.some((other) => !other.finished && ludoRingIndex(player.color, other.track) === ringIndex)
+      )
+    }
+    const movesFor = (amount: number, allowBaseExit: boolean): LudoMove[] => {
+      const moves: LudoMove[] = []
       const bounce = (from: number) => {
         const raw = from + amount
         return raw > LUDU_FINAL_POSITION ? 2 * LUDU_FINAL_POSITION - raw : raw
@@ -431,18 +451,21 @@ export default function LudoGameOnline({
           )
           if (enemyPawn && SAFE_RING_CELLS.has(ringIndex)) return
         }
-        moves.push({ pawnIndex, target: destination })
+        const capture = moveCaptures(destination)
+        moves.push({ pawnIndex, target: destination, capture })
       })
       return moves
     }
     const options: LudoDieOption[] = []
     for (const index of unused) {
       const value = state.lastRolls[index]
-      options.push({ dice: [index], amount: value, moves: movesFor(value, value === 6) })
+      const moves = movesFor(value, value === 6)
+      options.push({ dice: [index], amount: value, moves, canCapture: moves.some((m) => m.capture) })
     }
     if (unused.length === 2) {
       const amount = state.lastRolls[0] + state.lastRolls[1]
-      options.push({ dice: [0, 1], amount, moves: movesFor(amount, false) })
+      const moves = movesFor(amount, false)
+      options.push({ dice: [0, 1], amount, moves, canCapture: moves.some((m) => m.capture) })
     }
     return options
   }, [state, myEntry, me.id])
@@ -656,10 +679,22 @@ export default function LudoGameOnline({
         />
         {actionFeedback && <p className="feedback">{actionFeedback}</p>}
         {isMyMoveTurn && selectedOption && legalMoves.length > 0 && (
-          <p className="ludo-hint">Dé {selectedOption.amount} sélectionné : cliquez sur un pion en surbrillance (base ou plateau) pour le déplacer.</p>
+          <p className="ludo-hint">
+            {legalMoves.some((m) => m.capture)
+              ? `Capture possible (cases rouges) avec ${selectedOption.dice.length === 2 ? 'la somme' : `le dé ${selectedOption.amount}`} : cliquez sur un pion en surbrillance. C’est à vous de choisir de capturer ou non.`
+              : `Dé ${selectedOption.amount} sélectionné : cliquez sur un pion en surbrillance (base ou plateau) pour le déplacer.`}
+          </p>
         )}
         {isMyMoveTurn && !selectedOption && dieOptions.some((option) => option.moves.length > 0) && (
           <p className="ludo-hint">Choisissez d’abord un dé ou la somme, puis déplacez un pion.</p>
+        )}
+        {isMyMoveTurn && !dieOptions.some((option) => option.moves.length > 0) && (
+          <p className="ludo-hint">
+            Aucun déplacement détecté pour ce lancer.{' '}
+            <button type="button" className="ludo-inline-pass" onClick={() => void act('pass')}>
+              Continuer
+            </button>
+          </p>
         )}
       </div>
 
