@@ -82,6 +82,7 @@ export default function A3GameOnline({
         sessionCode={sessionCode}
         playerName={(id) => snapshot.players.find((p) => p.id === id)?.displayName ?? 'Joueur'}
         onSend={async (payload) => { await act('chat', payload as Record<string, unknown>) }}
+        onOpened={(next) => { if (next) onUpdate(next) }}
         title="Chat"
         emptyText="Aucun message. Échangez, photo/vidéo ou note vocale."
         compact

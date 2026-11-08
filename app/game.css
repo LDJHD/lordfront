@@ -532,6 +532,10 @@
 .gc-voice-bar.recording{color:#ffb4c8;background:rgba(255,90,120,.08)}
 .gc-voice-bar.preview{background:rgba(255,255,255,.04)}
 .gc-voice-bar audio{height:34px;max-width:220px;flex:1 1 160px}
+.gc-media-preview{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-top:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04)}
+.gc-media-preview img,.gc-media-preview video{display:block;width:100%;max-width:320px;max-height:240px;object-fit:contain;border-radius:10px;background:#000;border:1px solid rgba(255,255,255,.12)}
+.gc-media-preview-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.gc-media-preview-bar .gc-voice-actions{margin-left:auto}
 .gc-rec-dot{width:9px;height:9px;border-radius:50%;background:#ff6b8a;box-shadow:0 0 0 4px rgba(255,107,138,.18);animation:voice-pulse 1s infinite}
 .gc-voice-actions{display:flex;align-items:center;gap:6px;margin-left:auto}
 .gc-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);color:#ece4f2;padding:8px 11px;border-radius:9px;font:600 12px inherit;cursor:pointer}

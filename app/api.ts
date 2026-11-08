@@ -14,17 +14,29 @@
 const BUILT_API_URL = process.env.NEXT_PUBLIC_API_URL?.trim()
 
 function isLocalUrl(url: string) {
-  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(url)
+  return /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})(:\d+)?(\/|$)/i.test(url)
 }
 
 export const API_URL = BUILT_API_URL && !isLocalUrl(BUILT_API_URL)
   ? BUILT_API_URL.replace(/\/+$/, '')
   : '/api'
 
+// Les médias (surtout les vidéos) ont besoin des requêtes HTTP Range pour être
+// lus et déplacés correctement. En production, on les charge donc directement
+// depuis le backend plutôt que via le proxy Netlify de /api. L'URL reprend
+// exactement la destination configurée dans netlify.toml.
+const PUBLIC_MEDIA_ORIGIN = 'https://floralwhite-chimpanzee-459944.hostingersite.com'
+
+function mediaBaseUrl() {
+  if (API_URL !== '/api') return API_URL
+  if (typeof window !== 'undefined' && !isLocalUrl(window.location.origin)) return PUBLIC_MEDIA_ORIGIN
+  return API_URL
+}
+
 export function resolveMediaUrl(path: string) {
   if (!path) return ''
   if (/^https?:\/\//i.test(path)) return path
-  return `${API_URL}${path.startsWith('/') ? path : `/${path}`}`
+  return `${mediaBaseUrl()}${path.startsWith('/') ? path : `/${path}`}`
 }
 
 const DEFAULT_TIMEOUT_MS = 12000

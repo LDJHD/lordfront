@@ -171,6 +171,7 @@ export default function TruthGameOnline({ sessionCode, snapshot, onUpdate }: { s
         sessionCode={sessionCode}
         playerName={(id) => snapshot.players.find((p) => p.id === id)?.displayName ?? 'Joueur'}
         onSend={async (payload) => { await runAction('chat', payload as Record<string, unknown>) }}
+        onOpened={(next) => { if (next) onUpdate(next) }}
         title="Chat"
         emptyText="Aucun message. Discutez, photo/vidéo ou note vocale."
         compact

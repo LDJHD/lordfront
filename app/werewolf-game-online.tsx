@@ -74,6 +74,7 @@ export default function WerewolfGameOnline({ sessionCode, snapshot, onUpdate }: 
         sessionCode={sessionCode}
         playerName={(id) => playerName(id)}
         onSend={async (payload) => { await act('wolfMessage', payload as Record<string, unknown>) }}
+        onOpened={(next) => { if (next) onUpdate(next) }}
         title="Chat des Loups"
         placeholder="Message aux Loups…"
         emptyText="Aucun message entre Loups."
@@ -91,6 +92,7 @@ export default function WerewolfGameOnline({ sessionCode, snapshot, onUpdate }: 
         sessionCode={sessionCode}
         playerName={(id) => playerName(id)}
         onSend={async (payload) => { await act('dayMessage', payload as Record<string, unknown>) }}
+        onOpened={(next) => { if (next) onUpdate(next) }}
         title="Débat du village"
         placeholder="Message au village…"
         emptyText="Aucun message."

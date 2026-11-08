@@ -118,12 +118,16 @@ export async function resumeOnline(code: string) {
 
 export type ChatUploadResult = { url: string; mime?: string; kind?: 'audio' | 'image' | 'video'; name?: string; size?: number | null }
 
-export async function uploadChatMedia(code: string, file: Blob | File, fileName?: string) {
+export async function uploadChatMedia(code: string, file: Blob | File, fileName?: string, mimeOverride?: string) {
   const token = loadPlayerToken(code)
   const form = new FormData()
-  const mime = file.type || 'application/octet-stream'
+  const declared = file.type && file.type !== 'application/octet-stream' ? file.type : ''
+  const mime = declared || mimeOverride || 'application/octet-stream'
   const name = fileName || (file instanceof File ? file.name : `media`)
-  form.append('file', file, name)
+  // Si le navigateur ne fournit pas le type (fréquent sur mobile), on force
+  // celui déduit de l'extension pour que le backend accepte le fichier.
+  const body = declared ? file : new Blob([file], { type: mime })
+  form.append('file', body, name)
   const response = await fetchWithTimeout(`${API_URL}/access-codes/${code}/online/upload-media`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },

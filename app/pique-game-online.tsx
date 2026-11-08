@@ -672,6 +672,7 @@ export default function PiqueGameOnline({
           sessionCode={sessionCode}
           playerName={(id) => snapshot.players.find((p) => p.id === id)?.displayName ?? 'Joueur'}
           onSend={async (payload) => { await act('chat', payload as Record<string, unknown>) }}
+          onOpened={(next) => { if (next) onUpdate(next) }}
           title="Chat de la partie"
           emptyText="Aucun message. Discutez, envoyez une photo/vidéo ou une note vocale."
           maxHeight={180}

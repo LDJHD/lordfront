@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ChevronDown,
   ChevronUp,
@@ -17,7 +17,7 @@ import {
   Video,
   X,
 } from 'lucide-react'
-import { openChatMedia, resolveMediaUrl, uploadChatMedia } from './online-api'
+import { openChatMedia, resolveMediaUrl, uploadChatMedia, type OnlineSnapshot } from './online-api'
 
 export type ChatAttachmentKind = 'audio' | 'image' | 'video'
 
@@ -49,6 +49,24 @@ export type ChatSendPayload = {
   audioUrl?: string
   audioMime?: string
   audioDurationMs?: number
+}
+
+type PendingMedia = {
+  file: File
+  url: string
+  kind: 'image' | 'video'
+  mime: string
+  viewOnce: boolean
+}
+
+const MEDIA_MIME_BY_EXT: Record<string, string> = {
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', avif: 'image/avif',
+  mp4: 'video/mp4', m4v: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime',
+}
+
+function guessMediaMime(name: string) {
+  const ext = name.split('.').pop()?.toLowerCase() ?? ''
+  return MEDIA_MIME_BY_EXT[ext] ?? ''
 }
 
 function pickAudioMime() {
@@ -104,21 +122,27 @@ function AttachmentView({
   meId: number
   messageId?: string
   sessionCode?: string
-  onOpened?: () => void
+  onOpened?: (snapshot?: OnlineSnapshot) => void
 }) {
   const kind = attachmentKind(attachment)
   const consumed = isViewOnceConsumed(attachment, meId, senderId)
   const isMine = senderId === meId
-  const [revealed, setRevealed] = useState(false)
+  // On mémorise l'URL au moment de l'ouverture : le serveur redacte ensuite le
+  // média dans le snapshot (vue unique), mais l'utilisateur doit pouvoir le voir
+  // jouer maintenant, tant que le composant reste monté.
+  const [revealedUrl, setRevealedUrl] = useState<string | null>(null)
   const [opening, setOpening] = useState(false)
 
   async function openOnce() {
-    if (!attachment.viewOnce || consumed || isMine || revealed) return
+    if (!attachment.viewOnce || consumed || isMine || revealedUrl) return
+    const url = attachment.url
     setOpening(true)
     try {
-      if (sessionCode && messageId) await openChatMedia(sessionCode, messageId, attachment.id)
-      setRevealed(true)
-      onOpened?.()
+      const snapshot = sessionCode && messageId
+        ? await openChatMedia(sessionCode, messageId, attachment.id)
+        : undefined
+      setRevealedUrl(url)
+      onOpened?.(snapshot)
     } catch {
       // keep closed on error
     } finally {
@@ -126,7 +150,7 @@ function AttachmentView({
     }
   }
 
-  if (consumed) {
+  if (consumed && !revealedUrl) {
     return (
       <div className="gc-attachment gc-consumed" aria-label="Média à vue unique ouvert">
         <EyeOff size={16} />
@@ -135,7 +159,7 @@ function AttachmentView({
     )
   }
 
-  if (attachment.viewOnce && !isMine && !revealed) {
+  if (attachment.viewOnce && !isMine && !revealedUrl) {
     return (
       <button type="button" className="gc-attachment gc-viewonce" onClick={() => void openOnce()} disabled={opening}>
         {opening ? <LoaderCircle size={18} className="spin" /> : kind === 'video' ? <Play size={18} /> : kind === 'image' ? <Eye size={18} /> : <Play size={18} />}
@@ -145,8 +169,18 @@ function AttachmentView({
     )
   }
 
-  const src = resolveMediaUrl(attachment.url)
-  if (!src) return null
+  const baseSrc = resolveMediaUrl(revealedUrl || attachment.url)
+  if (!baseSrc) return null
+  // Le type MIME est passé en indice au serveur : indispensable pour les anciens
+  // fichiers .webm audio (le navigateur a besoin de audio/webm, pas video/webm).
+  const params: string[] = []
+  if (attachment.mime) params.push(`mime=${encodeURIComponent(attachment.mime)}`)
+  // Sans no-store, un média à vue unique resterait dans le cache du navigateur
+  // et pourrait être rejoué après avoir été consommé.
+  if (attachment.viewOnce) params.push('once=1')
+  const src = params.length
+    ? `${baseSrc}${baseSrc.includes('?') ? '&' : '?'}${params.join('&')}`
+    : baseSrc
 
   if (kind === 'image') {
     return (
@@ -161,14 +195,18 @@ function AttachmentView({
     return (
       <div className="gc-attachment gc-video">
         {attachment.viewOnce && <span className="gc-badge"><Eye size={12} /> {isMine ? 'Vue unique' : 'Vue unique ouverte'}</span>}
-        <video src={src} controls playsInline preload="metadata" />
+        <video controls playsInline preload="metadata">
+          <source src={src} type={attachment.mime || undefined} />
+        </video>
       </div>
     )
   }
   return (
     <div className="gc-attachment gc-audio">
       {attachment.viewOnce && <span className="gc-badge"><Eye size={12} /> {isMine ? 'Vue unique' : 'Vue unique'}</span>}
-      <audio src={src} controls preload="none" />
+      <audio controls preload="metadata">
+        <source src={src} type={attachment.mime || undefined} />
+      </audio>
       {attachment.durationMs ? <small>{fmtDuration(attachment.durationMs)}</small> : null}
     </div>
   )
@@ -195,7 +233,7 @@ export function GameChatPanel({
   sessionCode: string
   playerName: (id: number) => string
   onSend: (payload: ChatSendPayload) => Promise<void> | void
-  onOpened?: () => void
+  onOpened?: (snapshot?: OnlineSnapshot) => void
   title?: string
   placeholder?: string
   emptyText?: string
@@ -208,12 +246,18 @@ export function GameChatPanel({
   const [collapsed, setCollapsed] = useState(false)
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
+  // Vue unique de la note vocale en cours d'aperçu (une option par message envoyé).
   const [viewOnce, setViewOnce] = useState(false)
   const [attachMenu, setAttachMenu] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pendingMedia, setPendingMedia] = useState<PendingMedia | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
-  const [fileKind, setFileKind] = useState<'image' | 'video'>('image')
+
+  // Libère l'URL locale de l'aperçu photo/vidéo quand on le remplace/ferme.
+  useEffect(() => () => {
+    if (pendingMedia?.url) URL.revokeObjectURL(pendingMedia.url)
+  }, [pendingMedia?.url])
 
   // Voice recording state
   const [recState, setRecState] = useState<'idle' | 'recording' | 'preview'>('idle')
@@ -251,6 +295,7 @@ export function GameChatPanel({
     setRecBlob(null)
     setRecMs(0)
     setRecState('idle')
+    setViewOnce(false)
   }
 
   async function startRecording() {
@@ -349,29 +394,60 @@ export function GameChatPanel({
   }
 
   function pickFile(kind: 'image' | 'video') {
-    setFileKind(kind)
     setAttachMenu(false)
-    window.setTimeout(() => fileRef.current?.click(), 0)
+    const input = fileRef.current
+    if (!input) return
+    // On met à jour l'attribut directement (synchrone) : sinon le sélecteur
+    // peut encore être filtré sur l'ancien type et refuser les vidéos.
+    input.accept = kind === 'image'
+      ? 'image/jpeg,image/png,image/webp,image/gif,image/avif'
+      : 'video/mp4,video/webm,video/quicktime,video/x-m4v'
+    input.click()
   }
 
-  async function onFileSelected(file: File | null) {
+  function clearPendingMedia() {
+    if (pendingMedia?.url) URL.revokeObjectURL(pendingMedia.url)
+    setPendingMedia(null)
+  }
+
+  function onFileSelected(file: File | null) {
     if (fileRef.current) fileRef.current.value = ''
     if (!file || sending || disabled) return
+    setError(null)
+    const declared = file.type.trim().toLowerCase()
+    const mime = declared && declared !== 'application/octet-stream' ? declared : guessMediaMime(file.name)
+    const isImage = mime.startsWith('image/')
+    const isVideo = mime.startsWith('video/')
+    if (!isImage && !isVideo) {
+      setError('Format non supporté : choisissez une photo ou une vidéo.')
+      return
+    }
+    if (pendingMedia?.url) URL.revokeObjectURL(pendingMedia.url)
+    setPendingMedia({
+      file,
+      url: URL.createObjectURL(file),
+      kind: isVideo ? 'video' : 'image',
+      mime,
+      viewOnce: false,
+    })
+  }
+
+  async function sendPendingMedia() {
+    if (!pendingMedia || sending) return
     setSending(true)
     setError(null)
     try {
-      const uploaded = await uploadChatMedia(sessionCode, file, file.name)
-      const kind = uploaded.kind || (file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'audio')
+      const uploaded = await uploadChatMedia(sessionCode, pendingMedia.file, pendingMedia.file.name, pendingMedia.mime)
       await onSend({
         attachments: [{
-          kind: kind as ChatAttachmentKind,
+          kind: pendingMedia.kind,
           url: uploaded.url,
-          mime: uploaded.mime || file.type,
-          name: uploaded.name || file.name,
-          viewOnce: viewOnce || undefined,
+          mime: uploaded.mime || pendingMedia.mime || pendingMedia.file.type,
+          name: uploaded.name || pendingMedia.file.name,
+          viewOnce: pendingMedia.viewOnce || undefined,
         }],
       })
-      setViewOnce(false)
+      clearPendingMedia()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Envoi impossible.')
     } finally {
@@ -425,7 +501,7 @@ export function GameChatPanel({
             <div className="gc-voice-bar preview">
               <audio src={recUrl} controls preload="metadata" />
               <label className={`gc-vo-toggle ${viewOnce ? 'on' : ''}`} title="Vue unique">
-                <input type="checkbox" checked={viewOnce} onChange={(e) => setViewOnce(e.target.checked)} />
+                <input type="checkbox" checked={viewOnce} disabled={sending} onChange={(e) => setViewOnce(e.target.checked)} />
                 {viewOnce ? <Eye size={14} /> : <EyeOff size={14} />} <span>1 vue</span>
               </label>
               <div className="gc-voice-actions">
@@ -437,27 +513,51 @@ export function GameChatPanel({
             </div>
           )}
 
-          {!readOnly && recState === 'idle' && (
+          {!readOnly && recState === 'idle' && pendingMedia && (
+            <div className="gc-media-preview">
+              {pendingMedia.kind === 'image' ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={pendingMedia.url} alt="Aperçu" />
+              ) : (
+                <video src={pendingMedia.url} controls playsInline preload="metadata" />
+              )}
+              <div className="gc-media-preview-bar">
+                <label className={`gc-vo-toggle ${pendingMedia.viewOnce ? 'on' : ''}`} title="Vue unique pour ce message">
+                  <input
+                    type="checkbox"
+                    checked={pendingMedia.viewOnce}
+                    disabled={sending}
+                    onChange={(e) => setPendingMedia((p) => (p ? { ...p, viewOnce: e.target.checked } : p))}
+                  />
+                  {pendingMedia.viewOnce ? <Eye size={14} /> : <EyeOff size={14} />} <span>1 vue</span>
+                </label>
+                <div className="gc-voice-actions">
+                  <button type="button" className="gc-btn danger" onClick={clearPendingMedia} disabled={sending} title="Supprimer"><Trash2 size={16} /></button>
+                  <button type="button" className="gc-btn primary" onClick={() => void sendPendingMedia()} disabled={sending} title="Envoyer">
+                    {sending ? <LoaderCircle size={16} className="spin" /> : <Send size={16} />} <span>Envoyer</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!readOnly && recState === 'idle' && !pendingMedia && (
             <div className="gc-compose">
               <input
                 type="file"
                 ref={fileRef}
                 className="gc-file-input"
-                accept={fileKind === 'image' ? 'image/jpeg,image/png,image/webp,image/gif' : 'video/mp4,video/webm,video/quicktime'}
-                onChange={(e) => void onFileSelected(e.target.files?.[0] ?? null)}
+                accept="image/jpeg,image/png,image/webp,image/gif,image/avif,video/mp4,video/webm,video/quicktime,video/x-m4v"
+                onChange={(e) => onFileSelected(e.target.files?.[0] ?? null)}
               />
               <div className="gc-attach-wrap">
-                <button type="button" className={`gc-icon-btn ${viewOnce ? 'active' : ''}`} onClick={() => setAttachMenu((v) => !v)} disabled={disabled || sending} title="Joindre photo/vidéo">
+                <button type="button" className="gc-icon-btn" onClick={() => setAttachMenu((v) => !v)} disabled={disabled || sending} title="Joindre photo/vidéo">
                   <Paperclip size={18} />
                 </button>
                 {attachMenu && (
                   <div className="gc-attach-menu">
                     <button type="button" onClick={() => pickFile('image')}><ImageIcon size={16} /> Photo</button>
                     <button type="button" onClick={() => pickFile('video')}><Video size={16} /> Vidéo</button>
-                    <label className={`gc-vo-menu ${viewOnce ? 'on' : ''}`}>
-                      <input type="checkbox" checked={viewOnce} onChange={(e) => setViewOnce(e.target.checked)} />
-                      {viewOnce ? <Eye size={15} /> : <EyeOff size={15} />} Vue unique
-                    </label>
                   </div>
                 )}
               </div>
@@ -466,7 +566,7 @@ export function GameChatPanel({
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void sendText() } }}
-                placeholder={viewOnce ? `${placeholder} (ou joignez en vue unique)` : placeholder}
+                placeholder={placeholder}
                 maxLength={500}
                 disabled={disabled || sending}
               />
@@ -478,7 +578,7 @@ export function GameChatPanel({
               </button>
             </div>
           )}
-          {readOnly ? <div className="gc-vo-hint" style={{justifyContent:'center',color:'#9b90a8'}}><EyeOff size={13} /> Lecture seule</div> : (viewOnce && recState === 'idle' && <div className="gc-vo-hint"><Eye size={13} /> Prochaine photo/vidéo/note en <strong>vue unique</strong> (le destinataire ne peut l’ouvrir qu’une fois).</div>)}
+          {readOnly ? <div className="gc-vo-hint" style={{justifyContent:'center',color:'#9b90a8'}}><EyeOff size={13} /> Lecture seule</div> : null}
         </>
       )}
     </div>
