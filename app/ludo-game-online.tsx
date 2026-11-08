@@ -1,10 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Clock, Crown, Dices, History, MessageCircle, RotateCcw, Send, Trophy } from 'lucide-react'
+import { Clock, Crown, Dices, History, RotateCcw, Trophy } from 'lucide-react'
 import { onlineAction, type OnlineSnapshot } from './online-api'
 import { resumeAudio } from './game-sounds'
-import { ChatAudioPlayer, VoiceRecordButton, type ChatAudio } from './voice-chat'
+import { GameChatPanel, type ChatMessage } from './game-chat'
 
 type LudoPawn = { home: number; track: number | null; finished: boolean; heldBy?: number | null }
 type LudoPlayerEntry = { id: number; color: string; pawns: LudoPawn[] }
@@ -26,7 +26,7 @@ type LudoState = {
   turnCount: number
   winnerId: number | null
   moveHistory: string[]
-  chatMessages: { senderId: number; text: string; timestamp: string; audio?: ChatAudio }[]
+  chatMessages: ChatMessage[]
 }
 
 type LudoMove = { pawnIndex: number; target: number; capture?: boolean; kind?: 'exit' | 'move' | 'recover' }
@@ -551,10 +551,6 @@ export default function LudoGameOnline({
   }, [])
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [state.chatMessages.length])
-
-  useEffect(() => {
     if (state.phase === 'finished' && state.winnerId) {
       if (savedResult.current) return
       savedResult.current = true
@@ -586,12 +582,6 @@ export default function LudoGameOnline({
     const occupants = pawnsByCell.get(cellKey) ?? []
     const mine = occupants.find((entry) => entry.player.id === me.id && movablePawnIndices.has(entry.pawnIndex))
     if (mine) playPawn(mine.pawnIndex)
-  }
-
-  function sendChat(payload?: { audioUrl: string; audioMime?: string; audioDurationMs?: number }) {
-    if (!payload && !chatInput.trim()) return
-    void act('chat', payload ?? { text: chatInput.trim() })
-    if (!payload) setChatInput('')
   }
 
   function renderPawns(cellKey: string) {
@@ -828,31 +818,17 @@ export default function LudoGameOnline({
         )}
       </div>
 
-      <div className="ludo-chat">
-        <div className="ludo-chat-header">
-          <MessageCircle size={16} /> Chat
-        </div>
-        <div className="ludo-chat-messages">
-          {state.chatMessages.length === 0 && <p className="ludo-chat-empty">Aucun message. Échangez avec vos adversaires !</p>}
-          {state.chatMessages.map((msg, index) => {
-            const sender = snapshot.players.find((player) => player.id === msg.senderId)
-            return (
-              <div key={index} className={`ludo-chat-msg ${msg.senderId === me.id ? 'own' : 'other'}`}>
-                <strong>{sender?.displayName ?? 'Inconnu'}</strong>
-                {msg.text ? <span>{msg.text}</span> : null}
-                <ChatAudioPlayer audio={msg.audio} />
-              </div>
-            )
-          })}
-          <div ref={chatEndRef} />
-        </div>
-        <div className="ludo-chat-input">
-          <input value={chatInput} onChange={(event) => setChatInput(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && sendChat()} placeholder="Message ou note vocale..." maxLength={400} />
-          <VoiceRecordButton sessionCode={sessionCode} onSend={async (payload) => sendChat(payload)} />
-          <button className="ghost" onClick={() => sendChat()} disabled={!chatInput.trim()}>
-            <Send size={16} />
-          </button>
-        </div>
+      <div className="gc-game-wrap">
+        <GameChatPanel
+          messages={state.chatMessages ?? []}
+          meId={me.id}
+          sessionCode={sessionCode}
+          playerName={(id) => snapshot.players.find((p) => p.id === id)?.displayName ?? 'Joueur'}
+          onSend={async (payload) => { await act('chat', payload as Record<string, unknown>) }}
+          title="Chat de la partie"
+          emptyText="Aucun message. Discutez, envoyez une photo/vidéo ou une note vocale."
+          maxHeight={180}
+        />
       </div>
 
       {isMyTurn && state.phase === 'playing' && (

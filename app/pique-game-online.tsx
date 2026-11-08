@@ -1,10 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Crown, MessageCircle, RotateCcw, Send, Trophy } from 'lucide-react'
+import { Crown, RotateCcw, Trophy } from 'lucide-react'
 import { onlineAction, type OnlineSnapshot } from './online-api'
 import { resumeAudio } from './game-sounds'
-import { ChatAudioPlayer, VoiceRecordButton } from './voice-chat'
+import { GameChatPanel, type ChatMessage } from './game-chat'
 
 type PiqueCard = string
 type PiquePlayerScore = { points: number; tricks: number; bags: number }
@@ -29,7 +29,7 @@ type PiqueState = {
   turnStartAt: string | null
   turnCount: number
   moveHistory: string[]
-  chatMessages: { senderId: number; text: string; timestamp: string; audio?: { url: string; mime?: string; durationMs?: number } }[]
+  chatMessages: ChatMessage[]
 }
 
 const SUIT_SYMBOLS: Record<string, string> = { S: '♠', H: '♥', D: '♦', C: '♣' }
@@ -228,9 +228,7 @@ export default function PiqueGameOnline({
 }) {
   const state = snapshot.gameState as unknown as PiqueState
   const me = snapshot.me
-  const chatEndRef = useRef<HTMLDivElement>(null)
   const savedResult = useRef(false)
-  const [chatInput, setChatInput] = useState('')
   const [now, setNow] = useState(Date.now())
   const [actionFeedback, setActionFeedback] = useState('')
   const [plisInput, setPlisInput] = useState('0')
@@ -249,10 +247,6 @@ export default function PiqueGameOnline({
   useEffect(() => {
     resumeAudio()
   }, [])
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [state.chatMessages.length])
 
   useEffect(() => {
     if (state.phase === 'finished' && state.winnerId) {
@@ -274,12 +268,6 @@ export default function PiqueGameOnline({
     },
     [onUpdate, sessionCode]
   )
-
-  function sendChat(payload?: { audioUrl: string; audioMime?: string; audioDurationMs?: number }) {
-    if (!payload && !chatInput.trim()) return
-    void act('chat', payload ?? { text: chatInput.trim() })
-    if (!payload) setChatInput('')
-  }
 
   function playCard(card: string) {
     void act('play', { card })
@@ -526,15 +514,23 @@ export default function PiqueGameOnline({
                 <span>Nombre de plis</span>
                 <input
                   type="number"
-                  min={nilInput ? 0 : 1}
+                  min={0}
                   max={maxPlis}
-                  value={nilInput ? '0' : (plisInput === '0' ? '1' : plisInput)}
+                  step={1}
+                  inputMode="numeric"
+                  value={nilInput ? '0' : plisInput}
                   disabled={nilInput}
                   onChange={(event) => {
-                    const v = event.target.value
-                    if (v === '') { setPlisInput('1'); return }
-                    const n = Math.trunc(Number(v))
-                    setPlisInput(String(Math.max(1, Math.min(Number.isFinite(n) ? n : 1, maxPlis))))
+                    // Saisie libre : permet d’effacer et de taper n’importe quel nombre.
+                    setActionFeedback('')
+                    setPlisInput(event.target.value)
+                  }}
+                  onBlur={() => {
+                    if (nilInput) return
+                    const v = plisInput.trim()
+                    if (v === '') return
+                    const n = Number(v)
+                    if (Number.isFinite(n)) setPlisInput(String(Math.trunc(n)))
                   }}
                   className="pique-announce-input"
                   aria-label="Nombre de plis annoncés"
@@ -546,21 +542,45 @@ export default function PiqueGameOnline({
                   checked={nilInput}
                   onChange={(event) => {
                     const checked = event.target.checked
+                    setActionFeedback('')
                     setNilInput(checked)
                     if (checked) setPlisInput('0')
-                    else if (Number(plisInput) < 1) setPlisInput('1')
+                    else if (plisInput.trim() === '' || Number(plisInput) === 0) setPlisInput('1')
                   }}
                 />
                 <span>Nil (0 pli)</span>
               </label>
-              <button className="launch" disabled={!nilInput && (Number(plisInput) < 1 || !Number.isFinite(Number(plisInput)))} onClick={() => announce(nilInput, nilInput ? 0 : Math.max(1, Math.min(Math.trunc(Number(plisInput) || 1), maxPlis)))}>
+              <button
+                className="launch"
+                onClick={() => {
+                  const raw = Math.trunc(Number(plisInput))
+                  if (nilInput) {
+                    announce(true, 0)
+                    return
+                  }
+                  if (plisInput.trim() === '' || !Number.isFinite(raw)) {
+                    setActionFeedback('Annonce invalide : entrez un nombre de plis.')
+                    return
+                  }
+                  if (raw < 1) {
+                    setActionFeedback('Annonce refusée : un contrat non nil doit être d’au moins 1 pli. (0 n’est pas accepté ; cochez Nil pour un contrat à 0.)')
+                    return
+                  }
+                  if (raw > maxPlis) {
+                    setActionFeedback(`Annonce invalide : maximum ${maxPlis} pli${maxPlis > 1 ? 's' : ''}.`)
+                    return
+                  }
+                  announce(false, raw)
+                }}
+              >
                 Annoncer
               </button>
             </div>
+            {actionFeedback && <p className="feedback" style={{ marginTop: 8 }}>{actionFeedback}</p>}
             <p className="pique-announce-help">
               {nilInput
                 ? 'Vous annoncez que vous ne remporterez aucun pli : +100 points si vous réussissez, −100 sinon.'
-                : `En dessous de ${plisInput || 0} plis ou au-delà du double (${2 * (Number(plisInput) || 0)}), la pénalité est de 10 points par pli demandé.`}
+                : `Saisissez librement votre contrat (1 à ${maxPlis}). 0 est refusé hors Nil. En dessous de votre annonce ou au-delà du double, pénalité de 10 points par pli demandé.`}
             </p>
           </div>
         )}
@@ -645,31 +665,17 @@ export default function PiqueGameOnline({
         )}
       </div>
 
-      <div className="ludo-chat">
-        <div className="ludo-chat-header">
-          <MessageCircle size={16} /> Chat
-        </div>
-        <div className="ludo-chat-messages">
-          {state.chatMessages.length === 0 && <p className="ludo-chat-empty">Aucun message. Échangez avec vos adversaires !</p>}
-          {state.chatMessages.map((msg, index) => {
-            const sender = snapshot.players.find((player) => player.id === msg.senderId)
-            return (
-              <div key={index} className={`ludo-chat-msg ${msg.senderId === me.id ? 'own' : 'other'}`}>
-                <strong>{sender?.displayName ?? 'Inconnu'}</strong>
-                {msg.text ? <span>{msg.text}</span> : null}
-                <ChatAudioPlayer audio={msg.audio} />
-              </div>
-            )
-          })}
-          <div ref={chatEndRef} />
-        </div>
-        <div className="ludo-chat-input">
-          <input value={chatInput} onChange={(event) => setChatInput(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && sendChat()} placeholder="Message ou note vocale..." maxLength={400} />
-          <VoiceRecordButton sessionCode={sessionCode} onSend={async (payload) => sendChat(payload)} />
-          <button className="ghost" onClick={() => sendChat()} disabled={!chatInput.trim()}>
-            <Send size={16} />
-          </button>
-        </div>
+      <div className="gc-game-wrap">
+        <GameChatPanel
+          messages={state.chatMessages ?? []}
+          meId={me.id}
+          sessionCode={sessionCode}
+          playerName={(id) => snapshot.players.find((p) => p.id === id)?.displayName ?? 'Joueur'}
+          onSend={async (payload) => { await act('chat', payload as Record<string, unknown>) }}
+          title="Chat de la partie"
+          emptyText="Aucun message. Discutez, envoyez une photo/vidéo ou une note vocale."
+          maxHeight={180}
+        />
       </div>
 
       {state.phase === 'playing' && (

@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ArrowRight, Circle, FileText, MessageCircle, RotateCcw, Scissors, Send } from 'lucide-react'
+import { ArrowRight, Circle, FileText, RotateCcw, Scissors } from 'lucide-react'
 import { onlineAction, type OnlineSnapshot } from './online-api'
-import { ChatAudioPlayer, VoiceRecordButton, type ChatAudio } from './voice-chat'
+import { GameChatPanel, type ChatMessage } from './game-chat'
 
 type Choice = 'rock' | 'paper' | 'scissors'
 
@@ -29,7 +29,7 @@ type A3State = {
   answerPlayerId: number | null
   answerRejected: boolean
   round: number
-  chatMessages?: { senderId: number; text: string; timestamp: string; audio?: ChatAudio }[]
+  chatMessages?: ChatMessage[]
 }
 
 export default function A3GameOnline({
@@ -46,8 +46,6 @@ export default function A3GameOnline({
   const me = snapshot.me.id
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState('')
-  const [chatInput, setChatInput] = useState('')
-  const chatEndRef = useRef<HTMLDivElement>(null)
   const chatMessages = state.chatMessages ?? []
 
   useEffect(() => {
@@ -56,9 +54,6 @@ export default function A3GameOnline({
   useEffect(() => {
     setAnswer(state.answer ?? '')
   }, [state.answer])
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [chatMessages.length])
 
   useEffect(() => {
     if (state.phase !== 'countdown') return
@@ -78,44 +73,20 @@ export default function A3GameOnline({
   async function replay() {
     await act('replay')
   }
-  function sendChat(payload?: { audioUrl: string; audioMime?: string; audioDurationMs?: number }) {
-    if (!payload && !chatInput.trim()) return
-    void act('chat', payload ?? { text: chatInput.trim() })
-    if (!payload) setChatInput('')
-  }
 
   const chatPanel = (
-    <div className="a3-chat">
-      <div className="a3-chat-header">
-        <MessageCircle size={16} /> Chat
-      </div>
-      <div className="a3-chat-messages">
-        {chatMessages.length === 0 && <p className="a3-chat-empty">Aucun message. Échangez avec l’autre joueur !</p>}
-        {chatMessages.map((msg, index) => {
-          const sender = snapshot.players.find((player) => player.id === msg.senderId)
-          return (
-            <div key={index} className={`a3-chat-msg ${msg.senderId === me ? 'own' : 'other'}`}>
-              <strong>{sender?.displayName ?? 'Inconnu'}</strong>
-              {msg.text ? <span>{msg.text}</span> : null}
-              <ChatAudioPlayer audio={msg.audio} />
-            </div>
-          )
-        })}
-        <div ref={chatEndRef} />
-      </div>
-      <div className="a3-chat-input">
-        <input
-          value={chatInput}
-          onChange={(event) => setChatInput(event.target.value)}
-          onKeyDown={(event) => event.key === 'Enter' && sendChat()}
-          placeholder="Message ou note vocale..."
-          maxLength={400}
-        />
-        <VoiceRecordButton sessionCode={sessionCode} onSend={async (payload) => sendChat(payload)} />
-        <button className="ghost" onClick={() => sendChat()} disabled={!chatInput.trim()}>
-          <Send size={16} />
-        </button>
-      </div>
+    <div className="gc-game-wrap">
+      <GameChatPanel
+        messages={chatMessages}
+        meId={me}
+        sessionCode={sessionCode}
+        playerName={(id) => snapshot.players.find((p) => p.id === id)?.displayName ?? 'Joueur'}
+        onSend={async (payload) => { await act('chat', payload as Record<string, unknown>) }}
+        title="Chat"
+        emptyText="Aucun message. Échangez, photo/vidéo ou note vocale."
+        compact
+        maxHeight={150}
+      />
     </div>
   )
 

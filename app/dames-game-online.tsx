@@ -6,12 +6,10 @@ import {
   Crown,
   History,
   Medal,
-  MessageCircle,
   Pause,
   Play,
   RefreshCw,
   RotateCcw,
-  Send,
   SkipForward,
 } from 'lucide-react'
 import { onlineAction, type OnlineSnapshot } from './online-api'
@@ -25,7 +23,7 @@ import {
   playDamesResumeSound,
   resumeAudio,
 } from './game-sounds'
-import { ChatAudioPlayer, VoiceRecordButton } from './voice-chat'
+import { GameChatPanel, type ChatMessage } from './game-chat'
 
 type DamesState = {
   phase: 'playing' | 'paused' | 'finished'
@@ -36,7 +34,7 @@ type DamesState = {
   turnStartAt: string | null
   moveHistory: string[]
   winner: 1 | 2 | 'draw' | null
-  chatMessages: { senderId: number; text: string; timestamp: string; audio?: { url: string; mime?: string; durationMs?: number } }[]
+  chatMessages: ChatMessage[]
   pauseRequestedBy: number | null
   warnings: string[]
   turnCount: number
@@ -104,11 +102,9 @@ export default function DamesGameOnline({
   const [legalMoves, setLegalMoves] = useState<
     { toRow: number; toCol: number; captures: { row: number; col: number }[] }[]
   >([])
-  const [chatInput, setChatInput] = useState('')
   const [now, setNow] = useState(Date.now())
   const [actionFeedback, setActionFeedback] = useState('')
   const boardRef = useRef<HTMLDivElement>(null)
-  const chatEndRef = useRef<HTMLDivElement>(null)
   const prevMoveCount = useRef(state.moveHistory.length)
   const prevPhase = useRef(state.phase)
   const prevWarning = useRef(false)
@@ -344,11 +340,6 @@ export default function DamesGameOnline({
     setMultiCaptureActive(false)
   }, [state.currentPlayer, state.turnCount])
 
-  // Scroll chat to bottom
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [state.chatMessages.length])
-
   // Clear selection when turn changes
   useEffect(() => {
     setSelectedCell(null)
@@ -476,12 +467,6 @@ export default function DamesGameOnline({
       warnedThisTurn.current = false
     }
   }, [showWarning])
-
-  function sendChat(payload?: { audioUrl: string; audioMime?: string; audioDurationMs?: number }) {
-    if (!payload && !chatInput.trim()) return
-    act('chat', payload ?? { text: chatInput.trim() })
-    if (!payload) setChatInput('')
-  }
 
   const isPauseRequester = state.pauseRequestedBy === me.id
   const otherPlayerPaused = state.pauseRequestedBy !== null && state.pauseRequestedBy !== me.id
@@ -815,42 +800,17 @@ export default function DamesGameOnline({
       </div>
 
       {/* Chat */}
-      <div className="dames-chat">
-        <div className="dames-chat-header">
-          <MessageCircle size={16} /> Chat
-        </div>
-        <div className="dames-chat-messages">
-          {state.chatMessages.length === 0 && (
-            <p className="dames-chat-empty">Aucun message. Échangez avec votre adversaire !</p>
-          )}
-          {state.chatMessages.map((msg, i) => {
-            const sender = snapshot.players.find((p) => p.id === msg.senderId)
-            return (
-              <div
-                key={i}
-                className={`dames-chat-msg ${msg.senderId === me.id ? 'own' : 'other'}`}
-              >
-                <strong>{sender?.displayName ?? 'Inconnu'}</strong>
-                {msg.text ? <span>{msg.text}</span> : null}
-                <ChatAudioPlayer audio={msg.audio} />
-              </div>
-            )
-          })}
-          <div ref={chatEndRef} />
-        </div>
-        <div className="dames-chat-input">
-          <input
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && sendChat()}
-            placeholder="Message ou note vocale..."
-            maxLength={400}
-          />
-          <VoiceRecordButton sessionCode={sessionCode} onSend={async (payload) => sendChat(payload)} />
-          <button className="ghost" onClick={() => sendChat()} disabled={!chatInput.trim()}>
-            <Send size={16} />
-          </button>
-        </div>
+      <div className="gc-game-wrap">
+        <GameChatPanel
+          messages={state.chatMessages ?? []}
+          meId={me.id}
+          sessionCode={sessionCode}
+          playerName={(id) => snapshot.players.find((p) => p.id === id)?.displayName ?? 'Joueur'}
+          onSend={async (payload) => { await act('chat', payload as Record<string, unknown>) }}
+          title="Chat"
+          emptyText="Aucun message. Discutez, photo/vidéo ou note vocale."
+          maxHeight={170}
+        />
       </div>
 
       {/* Turn indicator */}

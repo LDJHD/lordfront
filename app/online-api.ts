@@ -116,20 +116,31 @@ export async function resumeOnline(code: string) {
   return onlineAction(code, 'resume')
 }
 
-export async function uploadVoiceNote(code: string, blob: Blob) {
+export type ChatUploadResult = { url: string; mime?: string; kind?: 'audio' | 'image' | 'video'; name?: string; size?: number | null }
+
+export async function uploadChatMedia(code: string, file: Blob | File, fileName?: string) {
   const token = loadPlayerToken(code)
   const form = new FormData()
-  const mime = blob.type || 'audio/webm'
-  const ext = mime.includes('ogg') ? 'ogg' : mime.includes('mpeg') || mime.includes('mp3') ? 'mp3' : mime.includes('wav') ? 'wav' : mime.includes('mp4') || mime.includes('m4a') ? 'm4a' : 'webm'
-  form.append('audio', blob, `voice-note.${ext}`)
-  const response = await fetchWithTimeout(`${API_URL}/access-codes/${code}/online/upload-audio`, {
+  const mime = file.type || 'application/octet-stream'
+  const name = fileName || (file instanceof File ? file.name : `media`)
+  form.append('file', file, name)
+  const response = await fetchWithTimeout(`${API_URL}/access-codes/${code}/online/upload-media`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: form,
-  }, 30000)
+  }, 90000)
   const data = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error((data as { message?: string }).message ?? 'Envoi de la note vocale impossible.')
-  return data as { url: string; mime?: string; size?: number | null }
+  if (!response.ok) throw new Error((data as { message?: string }).message ?? 'Envoi du fichier impossible.')
+  return data as ChatUploadResult
+}
+
+export async function uploadVoiceNote(code: string, blob: Blob) {
+  const result = await uploadChatMedia(code, blob, 'voice-note.webm')
+  return { url: result.url, mime: result.mime, size: result.size ?? null }
+}
+
+export async function openChatMedia(code: string, messageId: string, attachmentId?: string) {
+  return onlineAction(code, 'openChatMedia', { messageId, ...(attachmentId ? { attachmentId } : {}) })
 }
 
 export async function onlineAction(code: string, action: string, payload: Record<string, unknown> = {}) {
