@@ -6,7 +6,7 @@ import { onlineAction, type OnlineSnapshot } from './online-api'
 import { resumeAudio } from './game-sounds'
 import { ChatAudioPlayer, VoiceRecordButton, type ChatAudio } from './voice-chat'
 
-type LudoPawn = { home: number; track: number | null; finished: boolean }
+type LudoPawn = { home: number; track: number | null; finished: boolean; heldBy?: number | null }
 type LudoPlayerEntry = { id: number; color: string; pawns: LudoPawn[] }
 type LudoState = {
   phase: 'playing' | 'finished'
@@ -29,12 +29,13 @@ type LudoState = {
   chatMessages: { senderId: number; text: string; timestamp: string; audio?: ChatAudio }[]
 }
 
-type LudoMove = { pawnIndex: number; target: number; capture?: boolean }
+type LudoMove = { pawnIndex: number; target: number; capture?: boolean; kind?: 'exit' | 'move' | 'recover' }
 type LudoDieOption = {
   dice: number[]
   amount: number
   moves: LudoMove[]
   canCapture?: boolean
+  canRecover?: boolean
 }
 
 function sameDice(first: number[] | null, second: number[] | null) {
@@ -282,19 +283,24 @@ function DiceTable({
             const option = dieOptions.find((item) => item.dice.length === 1 && item.dice[0] === index)
             const playable = Boolean(option && option.moves.length > 0)
             const canCapture = Boolean(option?.canCapture)
+            const canRecover = Boolean(option?.canRecover)
             const selected = sameDice(selectedDice, [index])
+            const actionLabel = canRecover ? 'récupérer' : canCapture ? 'capturer' : 'jouer'
+            const title = canRecover && playable
+              ? 'Avec un 6 : récupérez un de vos pions capturés (retour en base) ou sortez un pion'
+              : canCapture && playable ? 'Ce dé permet de capturer un pion adverse (à vous de choisir)' : undefined
             return (
               <button
                 key={`die-choice-${index}`}
                 type="button"
-                className={`ludo-dice-choice ${selected ? 'selected' : ''} ${used ? 'used' : ''} ${canCapture && playable ? 'has-capture' : ''}`}
+                className={`ludo-dice-choice ${selected ? 'selected' : ''} ${used ? 'used' : ''} ${canCapture && playable ? 'has-capture' : ''} ${canRecover && playable ? 'has-recover' : ''}`}
                 disabled={!isMyTurn || used || !playable}
                 onClick={() => onSelectDice([index])}
-                title={canCapture && playable ? 'Ce dé permet de capturer un pion adverse (à vous de choisir)' : undefined}
+                title={title}
               >
                 <span>Dé {index + 1}</span>
                 <strong>{rolls[index]}</strong>
-                <em>{used ? 'utilisé' : !playable ? 'bloqué' : canCapture ? 'capturer' : 'jouer'}</em>
+                <em>{used ? 'utilisé' : !playable ? 'bloqué' : actionLabel}</em>
               </button>
             )
           })}
@@ -431,7 +437,12 @@ export default function LudoGameOnline({
         if (pawn.finished) return
         const from = pawn.track
         if (from === null) {
-          if (allowBaseExit) moves.push({ pawnIndex, target: 0 })
+          // 6 joué seul : récupérer un pion prisonnier (chez l'adversaire) vers sa base,
+          // ou sortir un pion déjà dans sa propre base.
+          if (allowBaseExit) {
+            if (pawn.heldBy != null) moves.push({ pawnIndex, target: -1, kind: 'recover' })
+            else moves.push({ pawnIndex, target: 0, kind: 'exit' })
+          }
           return
         }
         const destination = bounce(from)
@@ -439,7 +450,7 @@ export default function LudoGameOnline({
         const blockedByOwnPawn = myEntry.pawns.some((other, otherIndex) => otherIndex !== pawnIndex && !other.finished && other.track === destination)
         if (blockedByOwnPawn) return
         if (destination >= LUDU_HOME_COLUMN_START) {
-          moves.push({ pawnIndex, target: destination })
+          moves.push({ pawnIndex, target: destination, kind: 'move' })
           return
         }
         const ringIndex = ludoRingIndex(myEntry.color, destination)
@@ -452,7 +463,7 @@ export default function LudoGameOnline({
           if (enemyPawn && SAFE_RING_CELLS.has(ringIndex)) return
         }
         const capture = moveCaptures(destination)
-        moves.push({ pawnIndex, target: destination, capture })
+        moves.push({ pawnIndex, target: destination, capture, kind: 'move' })
       })
       return moves
     }
@@ -460,12 +471,12 @@ export default function LudoGameOnline({
     for (const index of unused) {
       const value = state.lastRolls[index]
       const moves = movesFor(value, value === 6)
-      options.push({ dice: [index], amount: value, moves, canCapture: moves.some((m) => m.capture) })
+      options.push({ dice: [index], amount: value, moves, canCapture: moves.some((m) => m.capture), canRecover: moves.some((m) => m.kind === 'recover') })
     }
     if (unused.length === 2) {
       const amount = state.lastRolls[0] + state.lastRolls[1]
       const moves = movesFor(amount, false)
-      options.push({ dice: [0, 1], amount, moves, canCapture: moves.some((m) => m.capture) })
+      options.push({ dice: [0, 1], amount, moves, canCapture: moves.some((m) => m.capture), canRecover: moves.some((m) => m.kind === 'recover') })
     }
     return options
   }, [state, myEntry, me.id])
@@ -680,9 +691,11 @@ export default function LudoGameOnline({
         {actionFeedback && <p className="feedback">{actionFeedback}</p>}
         {isMyMoveTurn && selectedOption && legalMoves.length > 0 && (
           <p className="ludo-hint">
-            {legalMoves.some((m) => m.capture)
-              ? `Capture possible (cases rouges) avec ${selectedOption.dice.length === 2 ? 'la somme' : `le dé ${selectedOption.amount}`} : cliquez sur un pion en surbrillance. C’est à vous de choisir de capturer ou non.`
-              : `Dé ${selectedOption.amount} sélectionné : cliquez sur un pion en surbrillance (base ou plateau) pour le déplacer.`}
+            {legalMoves.some((m) => m.kind === 'recover')
+              ? `Avec ce 6 : cliquez sur un de vos pions capturés (dans la base d’un adversaire) pour le récupérer dans votre base, ou sur un pion de votre base pour le sortir. Vous choisissez.`
+              : legalMoves.some((m) => m.capture)
+                ? `Capture possible (cases rouges) avec ${selectedOption.dice.length === 2 ? 'la somme' : `le dé ${selectedOption.amount}`} : cliquez sur un pion en surbrillance. C’est à vous de choisir de capturer ou non.`
+                : `Dé ${selectedOption.amount} sélectionné : cliquez sur un pion en surbrillance (base ou plateau) pour le déplacer.`}
           </p>
         )}
         {isMyMoveTurn && !selectedOption && dieOptions.some((option) => option.moves.length > 0) && (
@@ -703,23 +716,38 @@ export default function LudoGameOnline({
           {BOARD_COLORS.map((color) => {
             const player = state.players.find((entry) => entry.color === color) ?? null
             const isActiveBase = Boolean(player && state.phase === 'playing' && state.currentPlayerId === player.id)
+            const ownInBase = player
+              ? player.pawns
+                  .map((pawn, pawnIndex) => ({ pawn, pawnIndex }))
+                  .filter(({ pawn }) => pawn.track === null && !pawn.finished && pawn.heldBy == null)
+              : []
+            const prisoners = player
+              ? state.players.flatMap((owner) =>
+                  owner.pawns.map((pawn, pawnIndex) => ({ owner, pawn, pawnIndex })).filter(({ pawn }) => pawn.track === null && !pawn.finished && pawn.heldBy === player.id)
+                )
+              : []
+            const slots = [
+              ...ownInBase.map((x) => ({ type: 'own' as const, owner: player!, pawnIndex: x.pawnIndex, color: player!.color })),
+              ...prisoners.map((x) => ({ type: 'prisoner' as const, owner: x.owner, pawnIndex: x.pawnIndex, color: x.owner.color })),
+            ].slice(0, LUDU_PAWN_COUNT)
             return (
               <div key={`base-${color}`} className={`ludo-base ${color} ${isActiveBase ? 'active' : ''}`} style={{ gridArea: BASE_AREAS[color] }}>
                 <div className="ludo-base-inner">
-                  {Array.from({ length: LUDU_PAWN_COUNT }, (_, pawnIndex) => {
-                    const pawn = player?.pawns[pawnIndex] ?? null
-                    const inBase = Boolean(pawn && pawn.track === null && !pawn.finished)
-                    const movable = Boolean(player && inBase && player.id === me.id && movablePawnIndices.has(pawnIndex))
+                  {Array.from({ length: LUDU_PAWN_COUNT }, (_, slotIndex) => {
+                    const slot = slots[slotIndex]
+                    const movable = Boolean(slot && slot.owner.id === me.id && movablePawnIndices.has(slot.pawnIndex))
+                    const isRecover = slot?.type === 'prisoner'
                     return (
                       <button
-                        key={pawnIndex}
+                        key={slotIndex}
                         type="button"
-                        className={`ludo-base-slot ${movable ? 'movable' : ''}`}
-                        onClick={() => movable && playPawn(pawnIndex)}
+                        className={`ludo-base-slot ${movable ? 'movable' : ''} ${isRecover ? 'prisoner' : ''}`}
+                        onClick={() => movable && playPawn(slot.pawnIndex)}
                         disabled={!movable}
-                        aria-label={movable ? 'Faire sortir ce pion' : `Emplacement ${pawnIndex + 1} ${COLOR_LABELS[color] ?? color}`}
+                        aria-label={movable ? (isRecover ? 'Récupérer ce pion (retour en base)' : 'Faire sortir ce pion') : `Emplacement ${slotIndex + 1} ${COLOR_LABELS[color] ?? color}`}
+                        title={isRecover ? `Pion ${COLOR_LABELS[slot?.color ?? ''] ?? ''} capturé (prisonnier)` : undefined}
                       >
-                        {player && inBase && <span className={`ludo-pawn ${player.color} ${movable ? 'movable' : ''}`} />}
+                        {slot && <span className={`ludo-pawn ${slot.color} ${movable ? 'movable' : ''} ${isRecover ? 'prisoner' : ''}`} />}
                       </button>
                     )
                   })}

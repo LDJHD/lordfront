@@ -526,11 +526,16 @@ export default function PiqueGameOnline({
                 <span>Nombre de plis</span>
                 <input
                   type="number"
-                  min={0}
+                  min={nilInput ? 0 : 1}
                   max={maxPlis}
-                  value={plisInput}
+                  value={nilInput ? '0' : (plisInput === '0' ? '1' : plisInput)}
                   disabled={nilInput}
-                  onChange={(event) => setPlisInput(event.target.value)}
+                  onChange={(event) => {
+                    const v = event.target.value
+                    if (v === '') { setPlisInput('1'); return }
+                    const n = Math.trunc(Number(v))
+                    setPlisInput(String(Math.max(1, Math.min(Number.isFinite(n) ? n : 1, maxPlis))))
+                  }}
                   className="pique-announce-input"
                   aria-label="Nombre de plis annoncés"
                 />
@@ -539,11 +544,16 @@ export default function PiqueGameOnline({
                 <input
                   type="checkbox"
                   checked={nilInput}
-                  onChange={(event) => setNilInput(event.target.checked)}
+                  onChange={(event) => {
+                    const checked = event.target.checked
+                    setNilInput(checked)
+                    if (checked) setPlisInput('0')
+                    else if (Number(plisInput) < 1) setPlisInput('1')
+                  }}
                 />
                 <span>Nil (0 pli)</span>
               </label>
-              <button className="launch" onClick={() => announce(nilInput, Number(plisInput) || 0)}>
+              <button className="launch" disabled={!nilInput && (Number(plisInput) < 1 || !Number.isFinite(Number(plisInput)))} onClick={() => announce(nilInput, nilInput ? 0 : Math.max(1, Math.min(Math.trunc(Number(plisInput) || 1), maxPlis)))}>
                 Annoncer
               </button>
             </div>

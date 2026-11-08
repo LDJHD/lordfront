@@ -484,3 +484,7 @@
 .ludo-dice-choice.has-capture em{color:#ff8fa3;font-weight:700}
 .ludo-dice-choice.has-capture{border-color:#ff5b8e55;background:#ff5b8e12}
 .ludo-dice-choice.has-capture.selected{border-color:#ff5b8e;background:#ff5b8e22;box-shadow:0 0 0 1px #ff5b8e66,0 6px 18px #ff5b8e22}
+.ludo-dice-choice.has-recover em{color:#8ce5ad;font-weight:700}
+.ludo-dice-choice.has-recover{border-color:#55d68a55;background:#55d68a12}
+.ludo-base-slot.prisoner::after{content:'';position:absolute;inset:18%;border-radius:50%;border:2px dashed rgba(255,255,255,.55);pointer-events:none}
+.ludo-pawn.prisoner{box-shadow:0 0 0 2px rgba(255,255,255,.35), inset 0 -2px 4px rgba(0,0,0,.25)}
