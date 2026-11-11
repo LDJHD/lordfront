@@ -470,7 +470,7 @@ export function GameChatPanel({
               const own = msg.senderId === meId
               const attachments = normalizeLegacyAudio(msg)
               return (
-                <div key={msg.id || `${msg.senderId}-${msg.timestamp}-${index}`} className={`gc-msg ${own ? 'own' : 'other'}`}>
+                <div key={msg.id || `${msg.senderId}-${msg.timestamp}-${index}`} className={`gc-msg ${own ? 'own' : 'other'} ${attachments.length ? 'has-media' : ''}`.trim()}>
                   <div className="gc-msg-meta">
                     <strong>{playerName(msg.senderId)}</strong>
                     {msg.timestamp ? <time>{fmtTime(msg.timestamp)}</time> : null}

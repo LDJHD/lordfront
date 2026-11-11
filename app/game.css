@@ -502,6 +502,9 @@
 .gc-msg{max-width:88%;padding:8px 10px;border-radius:12px;font-size:13px;line-height:1.38;word-break:break-word}
 .gc-msg.own{align-self:flex-end;background:linear-gradient(180deg,rgba(216,180,106,.22),rgba(216,180,106,.12));border:1px solid rgba(216,180,106,.22);color:#fff6e2}
 .gc-msg.other{align-self:flex-start;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);color:#ece4f2}
+/* Un message média sans texte ne doit pas réduire le lecteur audio/vidéo à
+   quelques pixels : sinon le bouton lecture natif devient invisible. */
+.gc-msg.has-media{min-width:min(260px,100%)}
 .gc-msg-meta{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:3px}
 .gc-msg-meta strong{font-size:11px;opacity:.82}
 .gc-msg-meta time{font-size:10px;color:#a99ab6;white-space:nowrap}
@@ -559,4 +562,4 @@
 .gc-panel .spin{animation:gc-spin .9s linear infinite}
 .gc-game-wrap{margin:14px auto;max-width:580px}
 .gc-game-wrap.wide{max-width:760px}
-@media (max-width:640px){.gc-msg{max-width:94%}.gc-voice-bar audio{max-width:100%}.gc-btn span{display:none}.gc-compose{gap:5px;padding:8px}.gc-icon-btn{width:36px;height:36px}.gc-text{padding:9px 10px}.gc-game-wrap{max-width:100%}}
+@media (max-width:640px){.gc-msg{max-width:94%}.gc-msg.has-media{width:100%;min-width:0}.gc-attachment audio,.gc-attachment video{max-width:100%}.gc-voice-bar audio{max-width:100%}.gc-btn span{display:none}.gc-compose{gap:5px;padding:8px}.gc-icon-btn{width:36px;height:36px}.gc-text{padding:9px 10px}.gc-game-wrap{max-width:100%}}
