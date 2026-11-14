@@ -132,6 +132,26 @@ function AttachmentView({
   // jouer maintenant, tant que le composant reste monté.
   const [revealedUrl, setRevealedUrl] = useState<string | null>(null)
   const [opening, setOpening] = useState(false)
+  const [mediaError, setMediaError] = useState(false)
+
+  const effectiveUrl = revealedUrl || attachment.url
+  const baseSrc = resolveMediaUrl(effectiveUrl)
+
+  // Le type MIME est passé en indice au serveur : indispensable pour les anciens
+  // fichiers .webm audio (le navigateur a besoin de audio/webm, pas video/webm).
+  const params: string[] = []
+  const mimeHint = attachment.mime || (kind === 'audio' ? 'audio/webm' : kind === 'video' ? 'video/mp4' : '')
+  if (mimeHint) params.push(`mime=${encodeURIComponent(mimeHint)}`)
+  // Sans no-store, un média à vue unique resterait dans le cache du navigateur
+  // et pourrait être rejoué après avoir été consommé.
+  if (attachment.viewOnce) params.push('once=1')
+  const src = baseSrc
+    ? (params.length ? `${baseSrc}${baseSrc.includes('?') ? '&' : '?'}${params.join('&')}` : baseSrc)
+    : ''
+
+  useEffect(() => {
+    setMediaError(false)
+  }, [src])
 
   async function openOnce() {
     if (!attachment.viewOnce || consumed || isMine || revealedUrl) return
@@ -169,25 +189,15 @@ function AttachmentView({
     )
   }
 
-  const baseSrc = resolveMediaUrl(revealedUrl || attachment.url)
   if (!baseSrc) return null
-  // Le type MIME est passé en indice au serveur : indispensable pour les anciens
-  // fichiers .webm audio (le navigateur a besoin de audio/webm, pas video/webm).
-  const params: string[] = []
-  if (attachment.mime) params.push(`mime=${encodeURIComponent(attachment.mime)}`)
-  // Sans no-store, un média à vue unique resterait dans le cache du navigateur
-  // et pourrait être rejoué après avoir été consommé.
-  if (attachment.viewOnce) params.push('once=1')
-  const src = params.length
-    ? `${baseSrc}${baseSrc.includes('?') ? '&' : '?'}${params.join('&')}`
-    : baseSrc
 
   if (kind === 'image') {
     return (
       <div className="gc-attachment gc-image">
         {attachment.viewOnce && <span className="gc-badge"><Eye size={12} /> {isMine ? 'Vue unique' : 'Vue unique ouverte'}</span>}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt={attachment.name || 'Photo'} loading="lazy" onClick={() => window.open(src, '_blank', 'noopener,noreferrer')} />
+        <img src={src} alt={attachment.name || 'Photo'} loading="lazy" onError={() => setMediaError(true)} onClick={() => window.open(src, '_blank', 'noopener,noreferrer')} />
+        {mediaError ? <a className="gc-media-fallback" href={src} target="_blank" rel="noopener noreferrer">Ouvrir la photo</a> : null}
       </div>
     )
   }
@@ -195,19 +205,21 @@ function AttachmentView({
     return (
       <div className="gc-attachment gc-video">
         {attachment.viewOnce && <span className="gc-badge"><Eye size={12} /> {isMine ? 'Vue unique' : 'Vue unique ouverte'}</span>}
-        <video controls playsInline preload="metadata">
-          <source src={src} type={attachment.mime || undefined} />
+        <video key={src} controls playsInline preload="metadata" src={src} onError={() => setMediaError(true)}>
+          {mimeHint ? <source src={src} type={mimeHint} /> : null}
         </video>
+        {mediaError ? <a className="gc-media-fallback" href={src} target="_blank" rel="noopener noreferrer">Ouvrir la vidéo</a> : null}
       </div>
     )
   }
   return (
     <div className="gc-attachment gc-audio">
       {attachment.viewOnce && <span className="gc-badge"><Eye size={12} /> {isMine ? 'Vue unique' : 'Vue unique'}</span>}
-      <audio controls preload="metadata">
-        <source src={src} type={attachment.mime || undefined} />
+      <audio key={src} controls preload="auto" src={src} onError={() => setMediaError(true)}>
+        {mimeHint ? <source src={src} type={mimeHint} /> : null}
       </audio>
       {attachment.durationMs ? <small>{fmtDuration(attachment.durationMs)}</small> : null}
+      {mediaError ? <a className="gc-media-fallback" href={src} target="_blank" rel="noopener noreferrer">Télécharger l’audio</a> : null}
     </div>
   )
 }

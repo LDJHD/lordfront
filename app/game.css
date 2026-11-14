@@ -554,6 +554,7 @@
 .gc-attachment.gc-image img{display:block;max-width:100%;width:220px;max-height:220px;object-fit:cover;border-radius:10px;border:1px solid rgba(255,255,255,.1);cursor:pointer;background:#000}
 .gc-attachment.gc-audio{display:flex;flex-direction:column;gap:4px}
 .gc-attachment.gc-audio small{color:#a99ab6;font-size:11px}
+.gc-media-fallback{display:inline-block;margin-top:6px;font-size:12px;color:#f3dca3;text-decoration:underline}
 .gc-attachment.gc-viewonce,.gc-attachment.gc-consumed{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;border:1px dashed rgba(216,180,106,.35);background:rgba(216,180,106,.08);color:#f3dca3;font:600 13px inherit;cursor:pointer;text-align:left}
 .gc-attachment.gc-viewonce em{margin-left:auto;font:700 10px inherit;text-transform:uppercase;letter-spacing:.04em;color:#d8b46a;opacity:.9}
 .gc-attachment.gc-viewonce:disabled{opacity:.7;cursor:wait}
